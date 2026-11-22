@@ -2,8 +2,9 @@
 
 All art, sounds and music in EyeSpy are original and made in code: the logo,
 the anime character kit (12 public characters and 42 secret role characters),
-role badges, finisher animations, sound effects (ZzFX and Web Audio) and the
-tension loop. The characters are original; none are taken from existing anime.
+role badges and the motion-graphics finishers. The characters are original;
+none are taken from existing anime. Sound effects are recordings from
+効果音ラボ (see below), layered and mixed in code.
 Japanese lettering uses the phone's built-in CJK font. This file lists
 borrowed code, fonts and libraries.
 
@@ -11,8 +12,15 @@ borrowed code, fonts and libraries.
 
 | What | Where | Source | Licence |
 | --- | --- | --- | --- |
-| ZzFX sound generator (TypeScript port) | `app/src/audio/zzfx.ts` | [ZzFX](https://github.com/KilledByAPixel/ZzFX) by Frank Force | MIT |
 | mulberry32 PRNG | `packages/engine/src/state.ts` | Public-domain algorithm by Tommy Ettinger | Public domain |
+
+## Sound effects (bundled)
+
+| What | Where | Source | Licence |
+| --- | --- | --- | --- |
+| 27 recorded sound effects (slashes, impacts, temple bell, gong, taiko, kotsudumi, magic, heartbeat, glints, wood knocks) | `app/public/sfx/` | [効果音ラボ (Soundeffect-Lab)](https://soundeffect-lab.info/) | Free for use in games and apps, commercial included, no credit required. Redistributing the raw files (as a library, soundboard or in a public repo) is not allowed, and direct linking to their files is not allowed. Terms: https://soundeffect-lab.info/agreement/ |
+
+Keep this repository private while `app/public/sfx/` is in it, since a public repo would count as redistributing the raw files.
 
 ## Fonts (bundled)
 

@@ -21,20 +21,21 @@ describe('eventToAlert', () => {
   });
 
   it('counts down a wink, names the killer when allowed, and keeps their character for the finisher', () => {
-    const a = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: 'leo', deadline: 3100, killerCharacter: 'killer.garaku' }), ctx)!;
+    const a = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: 'leo', deadline: 3100, killerCharacter: 'killer.shuten' }), ctx)!;
     expect(a.style).toBe('countdown');
     expect(a.deadline).toBe(3100);
     expect(a.body).toBe('Leo winked at you');
-    expect(a.character).toBe('killer.garaku');
+    expect(a.character).toBe('killer.shuten');
     const hidden = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: null, deadline: 3100, killerCharacter: null }), ctx)!;
     expect(hidden.body).toBeUndefined();
   });
 
   it("plays the killer character's finisher when you die", () => {
-    const a = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: 'killer.garaku' })!;
+    const a = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: 'killer.shuten' })!;
     expect(a.style).toBe('finisher');
     expect(a.finisher).toBe('realm');
-    const b = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: 'killer.kagerou' })!;
+    // Without a known character, the simpler slash plays.
+    const b = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: null })!;
     expect(b.finisher).toBe('slash');
   });
 
@@ -43,10 +44,10 @@ describe('eventToAlert', () => {
   });
 
   it('spotlights the Snitch tip without naming the Snitch', () => {
-    const a = eventToAlert(ev({ type: 'SnitchTip', suspectId: 'leo', snitchCharacter: 'snitch.yoru' }), ctx)!;
+    const a = eventToAlert(ev({ type: 'SnitchTip', suspectId: 'leo', snitchCharacter: null }), ctx)!;
     expect(a.style).toBe('spotlight');
     expect(a.title).toBe("The Snitch thinks it's Leo");
-    expect(a.body).toBe('Fox Whisper');
+    expect(JSON.stringify(a)).not.toContain('"me"');
   });
 
   it('announces hearing results', () => {

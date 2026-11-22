@@ -190,7 +190,8 @@ export function eventToAlert(e: LoggedEvent, ctx: AlertContext): Alert | null {
           character: ctx.lastKillerCharacter ?? null,
           finisher: killer?.finisher ?? 'slash',
           tone: 'danger',
-          sound: 'death',
+          // The finisher scene carries its own sound.
+          sound: killer?.finisher === 'realm' ? undefined : 'death',
           haptic: HAPTICS.death,
           ttl: 9000,
         };
@@ -287,7 +288,8 @@ export function eventToAlert(e: LoggedEvent, ctx: AlertContext): Alert | null {
         ttl: 3800,
       };
     case 'HearingStarted':
-      return { ...base, style: 'silent', title: 'Hearing', tone: 'spot', sound: 'gavel', haptic: HAPTICS.hearing };
+      // The court scene carries the sound.
+      return { ...base, style: 'silent', title: 'Hearing', tone: 'spot', haptic: HAPTICS.hearing };
     case 'VoteCast':
       return ev.voterId === ctx.me ? null : { ...base, style: 'silent', title: 'Vote', tone: 'neutral', sound: 'vote' };
     case 'HearingResult':

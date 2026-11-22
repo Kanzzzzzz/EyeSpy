@@ -30,77 +30,26 @@ const r = (role: RoleId, key: string, name: string, title: string, move: string,
   ...(finisher ? { finisher } : {}),
 });
 
+/**
+ * For now only two roles have an exclusive character; the others play as
+ * their public lobby face. Add a character by adding an entry here and its
+ * look in app/src/art/characters.ts.
+ */
 export const ROSTER: Record<RoleId, RosterEntry[]> = {
-  killer: [
-    r('killer', 'garaku', 'Garaku', 'The Cursed King', 'Realm Unfolded: Crimson Altar', 'realm'),
-    r('killer', 'kagerou', 'Kagerou', 'The Silent Blade', 'Iai: One Breath', 'slash'),
-    r('killer', 'vesper', 'Vesper', 'The Puppet Queen', 'Marionette Night', 'shadow'),
-  ],
-  sheriff: [
-    r('sheriff', 'haruto', 'Haruto', 'Captain of the Night Watch', 'Iron Verdict Chains'),
-    r('sheriff', 'ayame', 'Ayame', 'The Lantern Inspector', 'Lantern Seal'),
-    r('sheriff', 'gin', 'Old Wolf Gin', 'The Retired Legend', "Wolf's Snare"),
-  ],
-  shush: [
-    r('shush', 'shizuka', 'Shizuka', 'The Seal Maiden', 'Seal of Silence'),
-    r('shush', 'kuu', 'Brother Kuu', 'The Mute Monk', 'Vow of Stillness'),
-    r('shush', 'velvet', 'Velvet', 'Lady Hush', 'Velvet Curtain'),
-  ],
-  snitch: [
-    r('snitch', 'yoru', 'Yoru', 'The Tattletale Fox', 'Fox Whisper'),
-    r('snitch', 'byte', 'Byte', 'The Info Broker', 'Data Leak'),
-    r('snitch', 'aiko', 'Aiko', 'The Paper Crane Courier', 'Thousand Cranes'),
-  ],
-  lover: [
-    r('lover', 'momo', 'Momo', 'The Hopeless Romantic', 'Red String'),
-    r('lover', 'kaito', 'Kaito', 'The Moonlit Poet', 'Moon Vow'),
-    r('lover', 'suzu', 'Suzu', 'The Bell of Fate', 'Twin Bells'),
-  ],
-  citizen: [
-    r('citizen', 'taro', 'Taro', 'The Ramen Runner', 'Extra Spicy'),
-    r('citizen', 'mei', 'Mei', 'The Class President', 'Order in the Room!'),
-    r('citizen', 'juubei', 'Gramps Juubei', 'The Old Fisherman', 'Tall Tales'),
-  ],
-  judge: [
-    r('judge', 'tenbin', 'Tenbin', 'Lord of the Scales', 'Court of Scales'),
-    r('judge', 'seraphine', 'Seraphine', 'The Arbiter', 'Heavenly Verdict'),
-    r('judge', 'onibi', 'Onibi', 'The Demon Magistrate', 'Hall of Judgement'),
-  ],
-  dramaQueen: [
-    r('dramaQueen', 'kirara', 'Kirara', 'The Stage Diva', 'Encore!'),
-    r('dramaQueen', 'lucien', 'Prince Lucien', 'The Tragic Heartthrob', 'Rose Monologue'),
-    r('dramaQueen', 'hime', 'Hime', 'The Princess of Tears', 'Waterworks'),
-  ],
-  bodyguard: [
-    r('bodyguard', 'goro', 'Goro', 'The Iron Wall', 'Iron Wall'),
-    r('bodyguard', 'freya', 'Freya', 'The Shield Maiden', 'Aegis'),
-    r('bodyguard', 'daigo', 'Daigo', 'The Wandering Ronin', 'Last Stand'),
-  ],
-  paparazzi: [
-    r('paparazzi', 'kenta', 'Kenta', 'The Flash', 'Scoop Shot'),
-    r('paparazzi', 'rika', 'Rika', 'The Scoop Queen', 'Front Page'),
-    r('paparazzi', 'lens', 'Lens', 'The Night Photographer', 'Long Exposure'),
-  ],
-  copycat: [
-    r('copycat', 'mimi', 'Mimi', 'The Mimic Cat', 'Copy Paste'),
-    r('copycat', 'doppel', 'Doppel', 'The Mirror Twin', 'Mirror Image'),
-    r('copycat', 'nanashi', 'Nanashi', 'The Nameless', 'Borrowed Face'),
-  ],
-  medium: [
-    r('medium', 'yuzuha', 'Yuzuha', 'The Shrine Maiden', 'Spirit Bell'),
-    r('medium', 'kiri', 'Granny Kiri', 'The Fog Seer', 'Fog Reading'),
-    r('medium', 'ren', 'Ren', 'The Ghost Listener', 'Echoes'),
-  ],
-  decoy: [
-    r('decoy', 'pon', 'Pon', 'The Tanuki Trickster', 'Leaf Illusion'),
-    r('decoy', 'twitch', 'Twitch', 'The Nervous Wreck', 'False Alarm'),
-    r('decoy', 'mirage', 'Mirage', 'The Stage Illusionist', 'Smoke and Mirrors'),
-  ],
-  insomniac: [
-    r('insomniac', 'fukurou', 'Fukurou', 'The Night Owl', 'Owl Eyes'),
-    r('insomniac', 'shiro', 'Shiro', 'The Sleepless Gamer', 'All-Nighter'),
-    r('insomniac', 'neru', 'Neru', 'The Midnight Idol', 'Midnight Live'),
-  ],
+  killer: [r('killer', 'shuten', 'Shuten', 'The Cursed Sovereign', 'Realm Unfolded: Thousand-Petal Abattoir', 'realm')],
+  judge: [r('judge', 'tenbin', 'Rei Tenbin', 'The Unblinking Magistrate', 'Realm Unfolded: Court of the Unblinking Eye')],
+  sheriff: [],
+  shush: [],
+  snitch: [],
+  lover: [],
+  citizen: [],
+  dramaQueen: [],
+  bodyguard: [],
+  paparazzi: [],
+  copycat: [],
+  medium: [],
+  decoy: [],
+  insomniac: [],
 };
 
 const BY_ID = new Map(Object.values(ROSTER).flat().map((c) => [c.id, c]));

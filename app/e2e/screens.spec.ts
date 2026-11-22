@@ -66,15 +66,6 @@ test('a full round against bots', async ({ page }) => {
   await page.waitForTimeout(700);
   await shot(page, '09-reveal-face');
   await page.mouse.up();
-  // Peek at a secret character card and choose it.
-  const charCard = page.getByRole('button', { name: 'Hold to see this character' }).nth(1);
-  const cbox = (await charCard.boundingBox())!;
-  await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(500);
-  await shot(page, '10-reveal-character');
-  await page.mouse.up();
-  await page.getByRole('button', { name: 'Choose' }).nth(1).click();
   await page.getByRole('button', { name: "I'm ready" }).click();
   await room(page, `for (const p of room.state.players) if (p.id !== me) room.dispatch(p.id, { type: 'ready' });`);
   await expect(page.getByText(/alive/)).toBeVisible({ timeout: 15_000 });
@@ -111,7 +102,13 @@ test('a full round against bots', async ({ page }) => {
   const judge = await room<string | undefined>(page, `return idOf('judge');`);
   if (judge && judge !== meId && myRole !== 'judge') {
     await room(page, `const j = idOf('judge'); room.state = { ...room.state, roles: { ...roles, [j]: { ...roles[j], raisesSent: 3 } } }; room.dispatch(j, { type: 'useAbility', abilityId: 'hearing' });`);
-    await page.waitForTimeout(1400);
+    await page.waitForTimeout(600);
+    await shot(page, '15a-court-eye');
+    await page.waitForTimeout(800);
+    await shot(page, '15b-court-title');
+    await page.waitForTimeout(500);
+    await shot(page, '15c-court-gavel');
+    await page.waitForTimeout(1600);
     await shot(page, '15-hearing');
     const target = await room<string>(page, `return idOf('shush') ?? idOf('snitch');`);
     const targetName = await room<string>(page, `return room.state.players.find((p) => p.id === '${target}').name;`);
@@ -126,16 +123,16 @@ test('a full round against bots', async ({ page }) => {
 
   // Being winked: the countdown, then the Killer's finisher.
   if (myRole !== 'killer' && myRole !== 'sheriff') {
-    await room(page, `room.dispatch(idOf('killer'), { type: 'look', targetId: me }); room.dispatch(me, { type: 'look', targetId: idOf('killer') }); room.state = { ...room.state, roles: { ...roles, [idOf('killer')]: { ...roles[idOf('killer')], lastWinkAt: null, character: 'killer.garaku' } } }; room.dispatch(idOf('killer'), { type: 'wink', targetId: me });`);
+    await room(page, `room.dispatch(idOf('killer'), { type: 'look', targetId: me }); room.dispatch(me, { type: 'look', targetId: idOf('killer') }); room.state = { ...room.state, roles: { ...roles, [idOf('killer')]: { ...roles[idOf('killer')], lastWinkAt: null, character: 'killer.shuten' } } }; room.dispatch(idOf('killer'), { type: 'wink', targetId: me });`);
     await page.waitForTimeout(1300);
     await shot(page, '18-winked-countdown');
-    await page.waitForTimeout(2200);
+    await page.waitForTimeout(2300);
     await shot(page, '19-finisher-realm-1');
-    await page.waitForTimeout(1300);
+    await page.waitForTimeout(700);
     await shot(page, '20-finisher-realm-2');
-    await page.waitForTimeout(1600);
+    await page.waitForTimeout(700);
     await shot(page, '21-finisher-realm-3');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(3000);
     await shot(page, '22-death-card');
     await page.mouse.click(200, 400);
     await page.waitForTimeout(800);

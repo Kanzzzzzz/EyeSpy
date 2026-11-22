@@ -1,10 +1,12 @@
 import { character } from '@eyespy/engine';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
+import { CourtScene } from '../motion/CourtScene';
 import { AnimeFace } from '../art/AnimeFace';
 import { publicLook, roleLook } from '../art/characters';
 import { color, motion as m } from '../design/tokens';
-import { burstAt, fx } from '../fx/fx';
+import { burstAt } from '../fx/fx';
 import { play } from '../audio/sounds';
 import { useGame } from '../state/store';
 import { useCountdown } from '../ui/kit';
@@ -27,16 +29,20 @@ export function Hearing() {
   const gavel = useRef<HTMLDivElement>(null);
   const candidates = view.players.filter((p) => p.alive && p.id !== me?.id);
   const canVote = !!me?.alive;
+  const reduce = useReducedMotion();
+  // The court opens with its motion-graphics intro, once per hearing.
+  const [introFor, setIntroFor] = useState<number | null>(null);
+  const [introDone, setIntroDone] = useState<number | null>(null);
+  if (hearing && introFor !== hearing.endsAt) setIntroFor(hearing.endsAt);
+  const showIntro = !!hearing && !reduce && introDone !== hearing.endsAt;
 
   useEffect(() => {
-    if (!hearing) return;
-    const t = setTimeout(() => {
-      fx.flash('#FFFFFF', 160);
-      fx.shake(10, 300);
-      burstAt(gavel.current, 'impact', { size: 1.6, color: color.spot.DEFAULT, text: 'カンッ' });
-    }, 650);
-    return () => clearTimeout(t);
-  }, [hearing?.endsAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!hearing || !reduce) return;
+    play('court');
+    burstAt(gavel.current, 'impact', { size: 1.6, color: color.spot.DEFAULT, text: 'カンッ' });
+  }, [hearing?.endsAt, reduce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (showIntro) return <CourtScene characterId={judgeCharacter} onDone={() => setIntroDone(hearing!.endsAt)} />;
 
   return (
     <AnimatePresence>

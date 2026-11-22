@@ -34,12 +34,13 @@ its hotspot; every other phone joins. The design doc is `docs/design.md`.
 3. Rules work is test-first: write failing tests that describe the rule, then the code.
 4. A new role is one file under `packages/engine/src/roles/`, registered in
    `roles/index.ts`, with its own tests, a badge glyph in `app/src/art/RoleBadge.tsx`,
-   at least 3 characters in `roster.ts` + `characters.ts`, and off by default if it is special.
+   optionally an exclusive character in `roster.ts` + `characters.ts`, and off by default if it is special.
 5. Eye rules: winks and raises need eye contact (both looking at each other);
    arrests and targeted abilities act on the panel the player has open. Gaze is
    secret: a phone only learns whether the person it looks at looks back, and how
    many people look at it.
 6. Characters must be original. Never draw or name characters from existing anime or games.
+   Recorded sounds in `app/public/sfx` come from 効果音ラボ: keep the repo private (see CREDITS.md).
 7. Never send a phone anything it may not see. Anything role-related goes
    through `viewFor` / event audiences; add a test when you add a field.
 8. Use design tokens (`app/src/design/tokens.ts`) via Tailwind classes. No raw

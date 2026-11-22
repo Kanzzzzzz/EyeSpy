@@ -94,3 +94,19 @@ cooldowns), and an **Admin** button in game. In the panel you can:
 The tools act only on the host's own room (`Room.admin` and
 `packages/engine/src/admin.ts`). They are not in the protocol, so guests'
 phones can't use them.
+
+## Version 3: exclusive characters, motion graphics, recorded sound
+
+- The cast is now two exclusive original characters, **Shuten, the Cursed
+  Sovereign** (Killer) and **Rei Tenbin, the Unblinking Magistrate** (Judge).
+  Other roles play as their public lobby face. Characters from existing
+  anime (for example Sukuna or Higuruma) are not used, by policy, even
+  for a private build.
+- Drawing kit upgraded: cel shading, layered irises, lid creases, winged
+  lashes, gradient hair with highlights and strands. All 12 public faces redrawn.
+- Motion-graphics finishers on a frame-timed canvas engine (`app/src/motion`):
+  "Thousand-Petal Abattoir" (Shuten's kill, 4.2 s) and "Court of the
+  Unblinking Eye" (the hearing intro, 3.2 s, on every phone).
+- Sound: 27 recorded effects from 効果音ラボ, layered with sub-bass and a
+  generated reverb into cues; the music is now recorded taiko over a low pad.
+  The 8-bit synth is gone.

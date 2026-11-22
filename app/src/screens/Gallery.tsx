@@ -11,7 +11,20 @@ export function Gallery() {
   const gazes: Gaze[] = ['you', 'left', 'right', 'down'];
   return (
     <div className="min-h-screen bg-ink-900 p-4 text-paper">
-      <h1 className="font-display text-4xl uppercase">Public characters</h1>
+      <h1 className="font-display text-4xl uppercase">Exclusive characters</h1>
+      <div className="mt-3 flex flex-col items-center gap-4">
+        {Object.entries(ROLE_LOOKS).map(([id, look]) => (
+          <figure key={id} className="border-2 border-paper p-2" style={{ background: `${look.accent}22` }} data-testid={id}>
+            <AnimeFace look={look} size={330} />
+            <div className="flex justify-center gap-2">
+              <AnimeFace look={look} size={160} crop="eyes" expression="sly" glowEyes />
+              <AnimeFace look={look} size={160} crop="eyes" expression="wink" />
+            </div>
+            <figcaption className="text-center">{id}</figcaption>
+          </figure>
+        ))}
+      </div>
+      <h1 className="mt-6 font-display text-4xl uppercase">Public characters</h1>
       <div className="mt-3 grid grid-cols-3 gap-2">
         {PUBLIC_LOOKS.map((l) => (
           <figure key={l.name} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center">

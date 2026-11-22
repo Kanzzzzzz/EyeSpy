@@ -145,7 +145,8 @@ function playRandomGame(seed: number): { ended: boolean; steps: number; state: G
         break;
       case 'pickCharacter': {
         const role = g.state.roles[by]?.role;
-        body = { type: 'pickCharacter', characterId: role ? rng.pick(ROSTER[rng.next() < 0.8 ? role : 'killer']).id : 'x' };
+        const pool = role ? ROSTER[rng.next() < 0.8 ? role : 'killer'] : [];
+        body = { type: 'pickCharacter', characterId: pool.length ? rng.pick(pool).id : 'x' };
         break;
       }
       default:

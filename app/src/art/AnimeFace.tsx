@@ -73,7 +73,10 @@ export type Mark =
   | 'mole'
   | 'blush'
   | 'beads'
-  | 'shades';
+  | 'shades'
+  | 'thornHalo'
+  | 'eyeliner'
+  | 'scalesPin';
 
 export interface Look {
   skin: string;
@@ -90,6 +93,10 @@ export interface Look {
   marks?: Mark[];
   /** Signature colour: card backgrounds and auras. */
   accent: string;
+  /** Optional colour the hair fades to at the tips. */
+  hairTip?: string;
+  /** Horn colour (defaults to bone). */
+  hornColor?: string;
 }
 
 export type Gaze = 'you' | 'left' | 'right' | 'down' | 'up';
@@ -240,24 +247,34 @@ function Eye({
         animate={{ scaleY: closed || happy ? 0.08 : 1, opacity: closed || happy ? 0 : 1 }}
         transition={{ duration: 0.09 }}
       >
-        <path d={shape.white} fill="#FFFFFF" />
+        <path d={shape.white} fill="#FFFDF8" />
         <g clipPath={`url(#${clip})`}>
           <motion.g initial={false} animate={{ x: dx, y: gy }} transition={{ type: 'spring', stiffness: 380, damping: 26 }}>
             <ellipse cx={1} cy={0} rx={rx} ry={ry} fill={`url(#${grad})`} />
+            {/* darker upper band and lighter lower crescent give the iris depth */}
+            <ellipse cx={1} cy={-ry * 0.45} rx={rx * 0.95} ry={ry * 0.55} fill={shade(look.eyeColor, -0.5)} opacity={0.55} />
+            <path d={`M${1 - rx * 0.75} ${ry * 0.35} Q1 ${ry * 1.05} ${1 + rx * 0.75} ${ry * 0.35} Q1 ${ry * 0.7} ${1 - rx * 0.75} ${ry * 0.35} Z`} fill={shade(look.eyeColor, 0.6)} opacity={0.8} />
+            <ellipse cx={1} cy={0} rx={rx} ry={ry} fill="none" stroke={shade(look.eyeColor, -0.65)} strokeWidth={1.1} />
             {shape.slit ? (
-              <ellipse cx={1} cy={0} rx={1.3} ry={ry * 0.8} fill={LINE} />
+              <ellipse cx={1} cy={0} rx={1.4} ry={ry * 0.82} fill={LINE} />
             ) : (
-              <ellipse cx={1} cy={0.5} rx={rx * 0.42} ry={ry * 0.5} fill={LINE} />
+              <ellipse cx={1} cy={0.3} rx={rx * 0.4} ry={ry * 0.46} fill={LINE} />
             )}
-            <circle cx={1 - rx * 0.35} cy={-ry * 0.42} r={rx * 0.34} fill="#FFFFFF" />
-            <circle cx={1 + rx * 0.42} cy={ry * 0.36} r={rx * 0.15} fill="#FFFFFF" opacity={0.9} />
+            <ellipse cx={1 - rx * 0.36} cy={-ry * 0.4} rx={rx * 0.36} ry={rx * 0.3} fill="#FFFFFF" />
+            <circle cx={1 + rx * 0.44} cy={ry * 0.34} r={rx * 0.16} fill="#FFFFFF" opacity={0.95} />
+            <circle cx={1 + rx * 0.1} cy={-ry * 0.62} r={rx * 0.09} fill="#FFFFFF" opacity={0.8} />
           </motion.g>
-          {/* lid shadow */}
-          <path d={shape.lash} fill="none" stroke={shade(look.skin, -0.35)} strokeWidth={6} opacity={0.25} transform="translate(0 2)" />
+          {/* soft shadow under the upper lid */}
+          <path d={shape.white} fill={`url(#${uid}-lid)`} />
         </g>
-        <path d={shape.lash} fill="none" stroke={LINE} strokeWidth={3.4} strokeLinecap="round" />
-        <path d={shape.flick} fill="none" stroke={LINE} strokeWidth={2.6} strokeLinecap="round" />
-        <path d={shape.lower} fill="none" stroke={LINE} strokeWidth={1.3} strokeLinecap="round" opacity={0.7} />
+        {/* the lash line as a filled, tapered shape, with two wing flicks */}
+        <path d={shape.lash} fill="none" stroke={LINE} strokeWidth={4.2} strokeLinecap="round" />
+        <path d={shape.lash} fill="none" stroke={shade(look.hairColor, -0.6)} strokeWidth={1.4} strokeLinecap="round" opacity={0.6} transform="translate(0 -0.8)" />
+        <path d={shape.flick} fill="none" stroke={LINE} strokeWidth={3} strokeLinecap="round" />
+        <path d={shape.flick} fill="none" stroke={LINE} strokeWidth={2.2} strokeLinecap="round" transform="translate(3 -2) rotate(8)" />
+        {/* lid crease */}
+        <path d={shape.lash} fill="none" stroke={shade(look.skin, -0.4)} strokeWidth={1.1} strokeLinecap="round" transform="translate(1 -5.5) scale(0.86)" opacity={0.8} />
+        <path d={shape.lower} fill="none" stroke={LINE} strokeWidth={1.4} strokeLinecap="round" opacity={0.65} />
         {glow && <ellipse cx={1 + dx} cy={gy} rx={rx + 3} ry={ry + 3} fill={look.eyeColor} opacity={0.25} />}
       </motion.g>
       {(closed || happy) && (
@@ -397,6 +414,8 @@ function HairExtras({ hair, fill }: { hair: HairStyle; fill: string }) {
 // ---------------------------------------------------------------------------
 // Outfit
 // ---------------------------------------------------------------------------
+
+const FACE = 'M60 96 C60 62 80 46 100 46 C120 46 140 62 140 96 C140 108 139 118 136 128 C131 146 118 160 100 170 C82 160 69 146 64 128 C61 118 60 108 60 96 Z';
 
 const SHOULDERS = 'M12 240 C16 214 44 196 74 192 L100 202 L126 192 C156 196 184 214 188 240 Z';
 
@@ -556,6 +575,12 @@ function FaceMarks({ look }: { look: Look }) {
           <path d="M126 132 L126 140 M130 132 L130 140" stroke={shade('#F3D9B5', -0.3)} strokeWidth={1} />
         </g>
       )}
+      {m.has('eyeliner') && (
+        <g fill={look.accent}>
+          <path d="M66 112 L56 104 L64 116 Z" />
+          <path d="M134 112 L144 104 L136 116 Z" />
+        </g>
+      )}
       {m.has('tears') && <path d="M126 126 C124 132 124 136 126 138 C128 136 128 132 126 126 Z" fill="#7FD8FF" stroke={LINE} strokeWidth={1} />}
     </g>
   );
@@ -618,8 +643,8 @@ function Headgear({ look }: { look: Look }) {
       )}
       {m.has('horns') && (
         <g {...s}>
-          <path d="M76 58 C66 42 64 26 72 10 C74 26 82 40 90 50 Z" fill="#F1E6D0" />
-          <path d="M124 58 C134 42 136 26 128 10 C126 26 118 40 110 50 Z" fill="#F1E6D0" />
+          <path d="M76 58 C66 42 64 26 72 10 C74 26 82 40 90 50 Z" fill={look.hornColor ?? '#F1E6D0'} />
+          <path d="M124 58 C134 42 136 26 128 10 C126 26 118 40 110 50 Z" fill={look.hornColor ?? '#F1E6D0'} />
           <path d="M72 10 C72 18 74 22 76 26 M128 10 C128 18 126 22 124 26" stroke="#C4001F" strokeWidth={3} />
         </g>
       )}
@@ -700,6 +725,13 @@ function Headgear({ look }: { look: Look }) {
         <g {...s} transform="rotate(20 142 70)">
           <ellipse cx={142} cy={70} rx={14} ry={18} fill="#F7F2E8" />
           <path d="M134 66 L140 68 M150 66 L144 68 M136 80 Q142 84 148 80" stroke="#C4001F" strokeWidth={2} />
+        </g>
+      )}
+      {m.has('scalesPin') && (
+        <g transform="translate(130 214)" stroke="#000" strokeWidth={1}>
+          <circle r={9} fill="#FFC83A" />
+          <path d="M0 -5 L0 5 M-6 -2 L6 -2" stroke="#3A2A00" strokeWidth={1.4} />
+          <path d="M-8 2 L-6 -2 L-4 2 Z M4 2 L6 -2 L8 2 Z" fill="#3A2A00" strokeWidth={0} />
         </g>
       )}
       {m.has('earring') && <circle cx={60} cy={130} r={3} fill="#FFC83A" stroke={LINE} strokeWidth={1.2} />}
@@ -820,9 +852,36 @@ export const AnimeFace = memo(function AnimeFace({
           <stop offset="45%" stopColor={look.eyeColor} />
           <stop offset="100%" stopColor={shade(look.eyeColor, 0.45)} />
         </linearGradient>
+        <linearGradient id={`${uid}-lid`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={shade(look.skin, -0.45)} stopOpacity={0.55} />
+          <stop offset="45%" stopColor={shade(look.skin, -0.45)} stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id={`${uid}-hair`} x1="0" y1="0.1" x2="0" y2="1">
+          <stop offset="0%" stopColor={shade(look.hairColor, 0.12)} />
+          <stop offset="55%" stopColor={look.hairColor} />
+          <stop offset="100%" stopColor={look.hairTip ?? shade(look.hairColor, -0.35)} />
+        </linearGradient>
+        <linearGradient id={`${uid}-skin`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={shade(look.skin, 0.06)} />
+          <stop offset="100%" stopColor={look.skin} />
+        </linearGradient>
+        <clipPath id={`${uid}-face`}>
+          <path d={FACE} />
+        </clipPath>
+        <clipPath id={`${uid}-front`}>
+          {front ? <path d={front} /> : <rect width="0" height="0" />}
+        </clipPath>
       </defs>
 
-      {back && <path d={back} fill={shade(look.hairColor, -0.12)} {...hairStroke} />}
+      {back && <path d={back} fill={shade(look.hairTip ?? look.hairColor, -0.2)} {...hairStroke} strokeWidth={2.8} />}
+      {(look.marks ?? []).includes('thornHalo') && (
+        <g transform="translate(100 70)">
+          {Array.from({ length: 14 }, (_, i) => (
+            <path key={i} d="M-6 -46 L0 -86 L6 -46 Z" fill="#14070C" stroke={look.accent} strokeWidth={1.2} transform={`rotate(${-117 + i * 18})`} />
+          ))}
+          <circle r={50} fill="none" stroke={look.accent} strokeWidth={2} opacity={0.7} />
+        </g>
+      )}
       <HairExtras hair={look.hair} fill={look.hairColor} />
 
       {crop !== 'eyes' && (
@@ -835,24 +894,32 @@ export const AnimeFace = memo(function AnimeFace({
 
       <ellipse cx={60} cy={117} rx={6} ry={10} fill={look.skin} stroke={LINE} strokeWidth={2} />
       <ellipse cx={140} cy={117} rx={6} ry={10} fill={look.skin} stroke={LINE} strokeWidth={2} />
-      <path
-        d="M60 96 C60 62 80 46 100 46 C120 46 140 62 140 96 C140 108 139 118 136 128 C131 146 118 160 100 170 C82 160 69 146 64 128 C61 118 60 108 60 96 Z"
-        fill={look.skin}
-        stroke={LINE}
-        strokeWidth={2.4}
-      />
+      <path d={FACE} fill={`url(#${uid}-skin)`} stroke={LINE} strokeWidth={2.8} />
+      {/* cel shading: the fringe's cast shadow and the far side of the jaw (light from top left) */}
+      <g clipPath={`url(#${uid}-face)`} fill={shade(look.skin, -0.16)}>
+        {look.hair !== 'bald' && look.hair !== 'slick' && <path d="M56 84 C74 104 92 96 100 104 C110 96 128 106 146 86 L146 40 L56 40 Z" />}
+        <path d="M131 92 C138 116 132 146 104 172 L150 172 L150 92 Z" />
+        <path d="M86 160 Q100 172 114 160 L114 176 L86 176 Z" opacity={0.6} />
+      </g>
+      <path d="M62 112 Q60 118 63 124" fill="none" stroke={shade(look.skin, -0.3)} strokeWidth={1.2} />
       <FaceMarks look={look} />
 
       <Eye side="l" look={look} gaze={gaze} closed={closedL} happy={happy} dead={dead} shock={shock} glow={glowEyes} uid={uid} />
       <Eye side="r" look={look} gaze={gaze} closed={closedR} happy={happy} dead={dead} shock={shock} glow={glowEyes} uid={uid} />
 
-      <path d="M101 132 L98.5 138 L102 138.5" fill="none" stroke={shade(look.skin, -0.35)} strokeWidth={1.4} strokeLinecap="round" />
+      <path d="M102 126 L99 137 L103 137.5 Z" fill={shade(look.skin, -0.18)} />
+      <path d="M99 137.5 L103 138" fill="none" stroke={shade(look.skin, -0.45)} strokeWidth={1.3} strokeLinecap="round" />
       {!(look.marks ?? []).includes('mask') && <Mouth style={mouth} />}
       <LowerFace look={look} />
 
-      {front && <path d={front} fill={look.hairColor} {...hairStroke} />}
-      {front && look.hair !== 'bald' && (
-        <path d="M74 62 Q100 52 126 62" fill="none" stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" opacity={0.28} />
+      {front && <path d={front} fill={`url(#${uid}-hair)`} {...hairStroke} strokeWidth={2.8} />}
+      {front && (
+        <g clipPath={`url(#${uid}-front)`}>
+          {/* angel-ring highlight and a few strand lines */}
+          <path d="M70 66 Q100 50 130 66 Q100 58 70 66 Z" fill="#FFFFFF" opacity={0.42} />
+          <path d="M72 70 Q100 56 128 70" fill="none" stroke="#FFFFFF" strokeWidth={1.4} opacity={0.35} />
+          <path d="M84 52 Q80 72 76 92 M100 50 Q101 70 99 84 M116 52 Q121 72 126 92" fill="none" stroke={shade(look.hairColor, -0.45)} strokeWidth={1.2} opacity={0.6} />
+        </g>
       )}
 
       {/* The classic anime eyebrow raise lifts one brow. */}

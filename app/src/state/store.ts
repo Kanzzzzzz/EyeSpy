@@ -172,7 +172,6 @@ export const useGame = create<State>((set, get) => {
           void vibrate(won ? HAPTICS.win : HAPTICS.death);
         }
         if (view.phase === 'arrest' && lastPhase === 'playing') play('drumroll');
-        if (view.phase === 'hearing' && lastPhase === 'playing') setTimeout(() => play('courtSting'), 700);
         if (view.phase !== 'playing') set({ pendingLook: undefined });
         void keepAwake(view.phase !== 'lobby');
         lastPhase = view.phase;

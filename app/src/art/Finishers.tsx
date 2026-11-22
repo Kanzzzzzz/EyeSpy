@@ -6,6 +6,7 @@ import { color } from '../design/tokens';
 import { fx } from '../fx/fx';
 import { AnimeFace } from './AnimeFace';
 import { roleLook } from './characters';
+import { RealmScene } from '../motion/RealmScene';
 
 /**
  * Kill animations, played on the victim's phone. Each Killer character has
@@ -34,6 +35,12 @@ const H = () => window.innerHeight;
 
 export function FinisherScene({ kind, characterId, onDone }: { kind: Finisher; characterId: string | null; onDone: () => void }) {
   const reduce = useReducedMotion();
+  if (kind === 'realm' && !reduce) return <RealmScene characterId={characterId} onDone={onDone} />;
+  return <LegacyFinisher kind={kind} characterId={characterId} onDone={onDone} reduce={!!reduce} />;
+}
+
+/** The simpler slash and shadow finishers (and the reduced-motion fallback). */
+function LegacyFinisher({ kind, characterId, onDone, reduce }: { kind: Finisher; characterId: string | null; onDone: () => void; reduce: boolean }) {
   const entry = character(characterId);
   const look = roleLook(characterId, 'killer');
   const [prefix, moveName] = splitMove(entry?.move ?? 'One Breath');

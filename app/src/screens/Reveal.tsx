@@ -99,7 +99,7 @@ export function Reveal() {
             </span>
             <div className="mt-2 flex items-end gap-2">
               {me.role && <RoleBadge role={me.role} team={team} size={86} />}
-              <AnimeFace look={roleLook(me.character, me.role)} size={86} crop="face" />
+              {me.character && <AnimeFace look={roleLook(me.character, me.role)} size={86} crop="face" />}
             </div>
             <h3 className="title-outline mt-2 font-display text-5xl uppercase leading-none text-paper">{me.roleName}</h3>
             <p className="mt-2 text-sm font-semibold text-paper-dim">{me.summary}</p>
@@ -122,8 +122,8 @@ export function Reveal() {
         </motion.div>
       </div>
 
-      {/* Secret character pick: hold a card to see it, tap Choose to take it. */}
-      <div className="w-full">
+      {/* Secret character pick (only when a role has more than one): hold a card to see it, tap Choose. */}
+      {options.length > 1 && <div className="w-full">
         <p className="mb-2 font-display text-xl uppercase text-cyan">
           Pick your character <span className="font-jp text-xs font-black text-paper-faint">キャラ選択</span>
         </p>
@@ -132,7 +132,7 @@ export function Reveal() {
             <CharacterCard key={c.id} id={c.id} name={c.name} title={c.title} move={c.move} chosen={me.character === c.id} onChoose={() => void pickCharacter(c.id)} />
           ))}
         </div>
-      </div>
+      </div>}
 
       <div className="mt-4 w-full">
         <Button size="lg" className="w-full" disabled={!seen || myReady} onClick={() => void send({ type: 'ready' })} sfx="よし">

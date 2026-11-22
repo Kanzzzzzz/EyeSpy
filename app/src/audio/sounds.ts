@@ -1,56 +1,118 @@
-import { SAMPLE_RATE, zzfxGenerate, type ZzfxParams } from './zzfx';
-
 /**
- * Every sound in EyeSpy, synthesised live: short ZzFX blips for UI, and
- * layered Web Audio for the anime moments (the blade "shing", the realm
- * gong, chains, the gavel, the courtroom sting). All original; nothing is
- * loaded from disk.
+ * EyeSpy's sound engine. Recorded sound effects from 効果音ラボ
+ * (Soundeffect-Lab, free for use inside games; see CREDITS.md) are bundled in
+ * public/sfx and layered into cues: pitch shifts, a sub-bass boom and a
+ * generated reverb turn a sword slash, a temple bell and a magic swell into
+ * an anime-scale moment. Files are never hotlinked.
  */
 
-const ZZFX = {
-  tap: [0.35, 0, 760, 0, 0.01, 0.04, 1, 1.6],
-  select: [0.45, 0, 620, 0.005, 0.02, 0.06, 1, 1.2, 0, 0, 260, 0.02],
-  raise: [0.6, 0, 300, 0.02, 0.05, 0.16, 0, 1, 16, 0, 160, 0.05],
-  wink: [0.6, 0, 540, 0.01, 0.03, 0.12, 0, 1.6, 26, 0, 0, 0, 0, 0, 0, 0, 0.04],
-  buzz: [0.35, 0, 70, 0, 0.06, 0.06, 3, 1, 0, 0, 0, 0, 0, 0.6],
-  error: [0.45, 0, 180, 0, 0.04, 0.1, 2, 1, 0, 0, -40, 0.04],
-  join: [0.55, 0, 520, 0.01, 0.04, 0.15, 0, 1, 0, 0, 320, 0.05],
-  flip: [0.5, 0, 340, 0.01, 0.04, 0.14, 0, 1, 8, 0, 0, 0, 0, 0.1],
-  vote: [0.5, 0, 420, 0, 0.02, 0.08, 1, 1, 0, 0, 220, 0.03],
-} satisfies Record<string, ZzfxParams>;
+const FILES = [
+  'katana-slash5', 'katana-slash2', 'sword-slash1', 'super-arts-hit1', 'blow3', 'bomb2',
+  'magic-attack-darkness1', 'magic-charge1', 'aura2', 'magic-circle1', 'highspeed-movement1', 'magic-wind1',
+  'temple-bell1', 'solemnity1', 'jajean1', 'shock5', 'text-impact1', 'hyoushigi1', 'heart2',
+  'eye-shine1', 'eye-shine2', 'shakin3', 'drum-japanese1', 'drum-japanese2', 'doon1', 'kotsudumi1', 'door-wood-knock1',
+] as const;
+type File = (typeof FILES)[number];
 
-export type SoundName =
-  | keyof typeof ZZFX
-  | 'impact'
-  | 'slash'
-  | 'realm'
-  | 'shadow'
-  | 'eyeContact'
-  | 'witness'
-  | 'heartbeat'
-  | 'winked'
-  | 'death'
-  | 'heartbreak'
-  | 'sheriffWinked'
-  | 'shush'
-  | 'tip'
-  | 'chains'
-  | 'drumroll'
-  | 'stamp'
-  | 'gavel'
-  | 'courtSting'
-  | 'unlock'
-  | 'win'
-  | 'lose'
-  | 'phew'
-  | 'whoosh'
-  | 'charge';
+interface Layer {
+  file?: File;
+  /** A synthesised sub-bass drop instead of a file. */
+  sub?: { from: number; to: number; dur: number };
+  at?: number;
+  gain?: number;
+  rate?: number;
+  /** Reverb send, 0..1. */
+  verb?: number;
+  reverse?: boolean;
+  /** Start offset into the file, seconds. */
+  offset?: number;
+  dur?: number;
+}
+
+const CUES = {
+  tap: [{ file: 'hyoushigi1', gain: 0.18, rate: 1.6 }],
+  select: [{ file: 'shakin3', gain: 0.22, rate: 1.5, dur: 0.4 }],
+  whoosh: [{ file: 'highspeed-movement1', gain: 0.45 }],
+  flip: [{ file: 'highspeed-movement1', gain: 0.35, rate: 1.3 }],
+  join: [{ file: 'kotsudumi1', gain: 0.5, verb: 0.3 }],
+  vote: [{ file: 'hyoushigi1', gain: 0.6, verb: 0.35 }],
+  error: [{ file: 'kotsudumi1', gain: 0.35, rate: 0.7 }],
+  buzz: [{ sub: { from: 70, to: 55, dur: 0.12 }, gain: 0.35 }],
+  eyeContact: [{ file: 'eye-shine1', gain: 0.55, verb: 0.25 }],
+  wink: [{ file: 'eye-shine2', gain: 0.6, verb: 0.2 }],
+  raise: [{ file: 'eye-shine1', gain: 0.45, rate: 0.8, verb: 0.2 }],
+  witness: [{ file: 'text-impact1', gain: 0.8, verb: 0.3 }],
+  heartbeat: [{ file: 'heart2', gain: 0.9 }],
+  impact: [{ file: 'blow3', gain: 0.9, verb: 0.3 }, { sub: { from: 110, to: 38, dur: 0.5 }, gain: 0.7 }],
+  slash: [{ file: 'katana-slash5', gain: 1, verb: 0.35 }, { sub: { from: 140, to: 45, dur: 0.3 }, gain: 0.45, at: 0.03 }],
+  winked: [
+    { file: 'text-impact1', gain: 0.9, verb: 0.35 },
+    { file: 'heart2', gain: 0.8, at: 0.25 },
+    { sub: { from: 90, to: 40, dur: 0.8 }, gain: 0.6 },
+  ],
+  death: [
+    { file: 'super-arts-hit1', gain: 1, verb: 0.5 },
+    { file: 'bomb2', gain: 0.6, rate: 0.7, verb: 0.4, at: 0.05 },
+    { sub: { from: 80, to: 30, dur: 1.4 }, gain: 0.8 },
+  ],
+  heartbreak: [{ file: 'shock5', gain: 0.6, rate: 1.1, verb: 0.3 }],
+  sheriffWinked: [{ file: 'eye-shine2', gain: 0.7, verb: 0.3 }, { file: 'jajean1', gain: 0.6, at: 0.25, verb: 0.3 }],
+  shush: [{ file: 'magic-wind1', gain: 0.7, rate: 0.55, verb: 0.6 }, { file: 'solemnity1', gain: 0.25, rate: 1.4, at: 0.2, verb: 0.5 }],
+  tip: [{ file: 'shakin3', gain: 0.8, verb: 0.35 }],
+  chains: [
+    { file: 'sword-slash1', gain: 0.45, rate: 1.9, verb: 0.3 },
+    { file: 'eye-shine2', gain: 0.35, rate: 1.4, at: 0.12 },
+    { file: 'sword-slash1', gain: 0.4, rate: 2.2, at: 0.25, verb: 0.3 },
+  ],
+  drumroll: [{ file: 'drum-japanese2', gain: 0.9, verb: 0.35 }, { file: 'doon1', gain: 0.8, at: 1.1, verb: 0.4 }],
+  stamp: [{ file: 'drum-japanese1', gain: 0.9, verb: 0.35 }, { file: 'blow3', gain: 0.6 }],
+  gavel: [
+    { file: 'door-wood-knock1', gain: 0.9, rate: 0.8, verb: 0.55 },
+    { file: 'hyoushigi1', gain: 0.8, at: 0.5, verb: 0.6 },
+    { sub: { from: 90, to: 50, dur: 0.4 }, gain: 0.5, at: 0.5 },
+  ],
+  courtSting: [{ file: 'solemnity1', gain: 0.9, verb: 0.6 }, { file: 'drum-japanese1', gain: 0.7, at: 0.05, verb: 0.4 }],
+  unlock: [{ file: 'magic-charge1', gain: 0.7, verb: 0.3 }],
+  charge: [{ file: 'magic-charge1', gain: 0.6, verb: 0.3 }],
+  win: [{ file: 'jajean1', gain: 0.9, verb: 0.35 }, { file: 'doon1', gain: 0.6, verb: 0.4 }],
+  lose: [{ file: 'shock5', gain: 0.9, verb: 0.4 }],
+  phew: [{ file: 'highspeed-movement1', gain: 0.35, rate: 0.7, verb: 0.3 }],
+  // The two exclusive finishers (timed to their motion graphics).
+  realm: [
+    { file: 'magic-circle1', gain: 0.8, verb: 0.6 },
+    { file: 'aura2', gain: 0.7, rate: 0.8, verb: 0.6, at: 0.2 },
+    { file: 'temple-bell1', gain: 1, rate: 0.85, verb: 0.75, at: 1.2 },
+    { file: 'bomb2', gain: 0.8, rate: 0.75, verb: 0.6, at: 1.2 },
+    { sub: { from: 70, to: 28, dur: 2.4 }, gain: 0.9, at: 1.2 },
+  ],
+  realmCuts: [
+    { file: 'katana-slash5', gain: 0.9, verb: 0.4 },
+    { file: 'katana-slash2', gain: 0.8, verb: 0.4, at: 0.09, rate: 1.1 },
+    { file: 'sword-slash1', gain: 0.7, verb: 0.4, at: 0.18, rate: 0.9 },
+    { file: 'katana-slash5', gain: 0.8, verb: 0.4, at: 0.27, rate: 1.2 },
+    { file: 'katana-slash2', gain: 0.7, verb: 0.4, at: 0.36 },
+    { file: 'super-arts-hit1', gain: 1, verb: 0.6, at: 0.62 },
+    { sub: { from: 100, to: 30, dur: 1.2 }, gain: 0.9, at: 0.62 },
+  ],
+  court: [
+    { file: 'magic-attack-darkness1', gain: 0.6, rate: 0.85, verb: 0.6 },
+    { file: 'solemnity1', gain: 1, verb: 0.75, at: 1.0 },
+    { file: 'door-wood-knock1', gain: 1, rate: 0.75, verb: 0.7, at: 1.9 },
+    { sub: { from: 80, to: 40, dur: 0.6 }, gain: 0.6, at: 1.9 },
+  ],
+  verdict: [{ file: 'text-impact1', gain: 1, verb: 0.5 }, { file: 'drum-japanese1', gain: 1, verb: 0.5 }, { sub: { from: 100, to: 35, dur: 0.9 }, gain: 0.8 }],
+  shadow: [{ file: 'magic-attack-darkness1', gain: 0.9, verb: 0.5 }],
+} satisfies Record<string, Layer[]>;
+
+export type SoundName = keyof typeof CUES;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-let noiseBuf: AudioBuffer | null = null;
-const cache = new Map<string, AudioBuffer>();
+let verbIn: GainNode | null = null;
 let enabled = true;
+const buffers = new Map<File, AudioBuffer>();
+const reversed = new Map<File, AudioBuffer>();
+let loading: Promise<void> | null = null;
 
 export function setSoundEnabled(on: boolean) {
   enabled = on;
@@ -62,13 +124,25 @@ export function audioContext(): AudioContext | null {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
     ctx = new Ctor();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.ratio.value = 5;
+    comp.connect(ctx.destination);
     master = ctx.createGain();
     master.gain.value = 0.9;
-    // A gentle limiter so stacked effects never clip.
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -10;
-    comp.ratio.value = 6;
-    master.connect(comp).connect(ctx.destination);
+    master.connect(comp);
+    // A generated hall: a few seconds of decaying stereo noise as the impulse response.
+    const conv = ctx.createConvolver();
+    const len = Math.floor(ctx.sampleRate * 2.8);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2);
+    }
+    conv.buffer = ir;
+    verbIn = ctx.createGain();
+    verbIn.gain.value = 0.55;
+    verbIn.connect(conv).connect(master);
   }
   return ctx;
 }
@@ -77,240 +151,99 @@ export function audioContext(): AudioContext | null {
 export function unlockAudio() {
   const c = audioContext();
   if (c?.state === 'suspended') void c.resume();
+  void preloadSounds();
 }
 
-function out(): AudioNode {
-  return master!;
-}
-
-function noise(c: AudioContext): AudioBuffer {
-  if (!noiseBuf) {
-    noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+/** Load and decode every recording once (small: about 1.4 MB). */
+export function preloadSounds(): Promise<void> {
+  const c = audioContext();
+  if (!c) return Promise.resolve();
+  if (!loading) {
+    loading = Promise.all(
+      FILES.map(async (f) => {
+        try {
+          const res = await fetch(`./sfx/${f}.mp3`);
+          const buf = await c.decodeAudioData(await res.arrayBuffer());
+          buffers.set(f, buf);
+        } catch {
+          /* missing file: that layer stays silent */
+        }
+      }),
+    ).then(() => undefined);
   }
-  return noiseBuf;
+  return loading;
 }
 
-interface ToneOpts {
-  type?: OscillatorType;
-  freq: number;
-  to?: number;
-  at?: number;
-  dur: number;
-  gain?: number;
-  attack?: number;
+function reversedOf(f: File, b: AudioBuffer): AudioBuffer {
+  let r = reversed.get(f);
+  if (!r && ctx) {
+    r = ctx.createBuffer(b.numberOfChannels, b.length, b.sampleRate);
+    for (let ch = 0; ch < b.numberOfChannels; ch++) {
+      const src = b.getChannelData(ch);
+      const dst = r.getChannelData(ch);
+      for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]!;
+    }
+    reversed.set(f, r);
+  }
+  return r!;
 }
 
-function tone(c: AudioContext, o: ToneOpts) {
-  const t = c.currentTime + (o.at ?? 0);
-  const osc = c.createOscillator();
+function playLayer(c: AudioContext, l: Layer) {
+  const t = c.currentTime + (l.at ?? 0);
   const g = c.createGain();
-  osc.type = o.type ?? 'sine';
-  osc.frequency.setValueAtTime(o.freq, t);
-  if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.to), t + o.dur);
-  const peak = o.gain ?? 0.3;
-  const a = o.attack ?? 0.005;
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(peak, t + a);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
-  osc.connect(g).connect(out());
-  osc.start(t);
-  osc.stop(t + o.dur + 0.05);
-}
-
-interface NoiseOpts {
-  at?: number;
-  dur: number;
-  gain?: number;
-  attack?: number;
-  filter?: BiquadFilterType;
-  freq?: number;
-  to?: number;
-  q?: number;
-}
-
-function hiss(c: AudioContext, o: NoiseOpts) {
-  const t = c.currentTime + (o.at ?? 0);
+  g.gain.value = l.gain ?? 1;
+  g.connect(master!);
+  if (l.verb && verbIn) {
+    const send = c.createGain();
+    send.gain.value = l.verb;
+    g.connect(send).connect(verbIn);
+  }
+  if (l.sub) {
+    const osc = c.createOscillator();
+    const env = c.createGain();
+    osc.frequency.setValueAtTime(l.sub.from, t);
+    osc.frequency.exponentialRampToValueAtTime(l.sub.to, t + l.sub.dur);
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(1, t + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + l.sub.dur);
+    osc.connect(env).connect(g);
+    osc.start(t);
+    osc.stop(t + l.sub.dur + 0.05);
+    return;
+  }
+  const b = l.file && buffers.get(l.file);
+  if (!b || !l.file) return;
   const src = c.createBufferSource();
-  src.buffer = noise(c);
-  const f = c.createBiquadFilter();
-  f.type = o.filter ?? 'bandpass';
-  f.frequency.setValueAtTime(o.freq ?? 1000, t);
-  if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + o.dur);
-  f.Q.value = o.q ?? 1;
-  const g = c.createGain();
-  const peak = o.gain ?? 0.3;
-  const a = o.attack ?? 0.005;
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(peak, t + a);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
-  src.connect(f).connect(g).connect(out());
-  src.start(t, Math.random());
-  src.stop(t + o.dur + 0.05);
-}
-
-function zzfxBuffer(name: keyof typeof ZZFX): AudioBuffer | null {
-  const c = audioContext();
-  if (!c) return null;
-  let b = cache.get(name);
-  if (!b) {
-    const samples = zzfxGenerate(ZZFX[name]);
-    b = c.createBuffer(1, Math.max(1, samples.length), SAMPLE_RATE);
-    b.getChannelData(0).set(samples);
-    cache.set(name, b);
-  }
-  return b;
-}
-
-const SYNTHS: Record<Exclude<SoundName, keyof typeof ZZFX>, (c: AudioContext) => void> = {
-  impact(c) {
-    tone(c, { freq: 140, to: 38, dur: 0.38, gain: 0.9 });
-    hiss(c, { dur: 0.16, gain: 0.45, filter: 'lowpass', freq: 900 });
-  },
-  slash(c) {
-    // The blade "shing": a bright noise rip plus a ringing edge.
-    hiss(c, { dur: 0.14, gain: 0.6, filter: 'highpass', freq: 2500, to: 9000 });
-    tone(c, { freq: 2600, to: 3500, dur: 0.32, gain: 0.14 });
-    tone(c, { freq: 5300, dur: 0.2, gain: 0.05, at: 0.01 });
-    tone(c, { freq: 120, to: 50, dur: 0.22, gain: 0.5, at: 0.05 });
-  },
-  realm(c) {
-    // The realm closes in: a rising swell, then a huge gong.
-    hiss(c, { dur: 1.2, gain: 0.32, attack: 1.15, freq: 300, to: 2600, q: 0.7 });
-    tone(c, { type: 'sawtooth', freq: 55, to: 110, dur: 1.2, gain: 0.08, attack: 1.1 });
-    for (const [f, g] of [
-      [55, 0.55],
-      [82.4, 0.3],
-      [138.6, 0.18],
-      [207.7, 0.1],
-      [311, 0.06],
-    ] as const) {
-      tone(c, { freq: f, dur: 3.2, gain: g, at: 1.2, attack: 0.01 });
-    }
-    hiss(c, { at: 1.2, dur: 0.5, gain: 0.5, filter: 'lowpass', freq: 1200 });
-  },
-  shadow(c) {
-    hiss(c, { dur: 1.6, gain: 0.5, attack: 0.6, filter: 'lowpass', freq: 160 });
-    hiss(c, { dur: 1.2, gain: 0.12, attack: 0.4, filter: 'highpass', freq: 5000, at: 0.2 });
-    tone(c, { freq: 300, to: 70, dur: 1.4, gain: 0.18, attack: 0.3 });
-  },
-  eyeContact(c) {
-    tone(c, { freq: 1568, dur: 0.35, gain: 0.16 });
-    tone(c, { freq: 2349, dur: 0.3, gain: 0.08, at: 0.03 });
-  },
-  witness(c) {
-    hiss(c, { dur: 0.22, gain: 0.3, freq: 500, to: 3200, attack: 0.15 });
-    tone(c, { type: 'square', freq: 880, to: 1320, dur: 0.12, gain: 0.08, at: 0.2 });
-  },
-  heartbeat(c) {
-    tone(c, { freq: 62, to: 40, dur: 0.14, gain: 0.9 });
-    tone(c, { freq: 58, to: 38, dur: 0.16, gain: 0.7, at: 0.2 });
-  },
-  winked(c) {
-    SYNTHS.impact(c);
-    tone(c, { type: 'sawtooth', freq: 98, dur: 0.9, gain: 0.16, at: 0.05, attack: 0.04 });
-    tone(c, { type: 'sawtooth', freq: 92.5, dur: 0.9, gain: 0.12, at: 0.05, attack: 0.04 });
-  },
-  death(c) {
-    SYNTHS.impact(c);
-    hiss(c, { dur: 1.1, gain: 0.35, filter: 'lowpass', freq: 2000, to: 120, at: 0.05 });
-    tone(c, { freq: 440, to: 110, dur: 1.0, gain: 0.12, at: 0.1 });
-  },
-  heartbreak(c) {
-    tone(c, { type: 'triangle', freq: 660, to: 330, dur: 0.6, gain: 0.2 });
-    tone(c, { type: 'triangle', freq: 523, to: 262, dur: 0.7, gain: 0.15, at: 0.12 });
-  },
-  sheriffWinked(c) {
-    SYNTHS.witness(c);
-    tone(c, { type: 'triangle', freq: 784, dur: 0.25, gain: 0.18, at: 0.3 });
-    tone(c, { type: 'triangle', freq: 1047, dur: 0.4, gain: 0.18, at: 0.42 });
-  },
-  shush(c) {
-    hiss(c, { dur: 1.0, gain: 0.38, attack: 0.18, freq: 3400, q: 0.9 });
-  },
-  tip(c) {
-    [1047, 1319, 1568, 2093].forEach((f, i) => tone(c, { freq: f, dur: 0.4, gain: 0.12, at: i * 0.07 }));
-  },
-  chains(c) {
-    for (let i = 0; i < 8; i++) {
-      const f = 1700 + Math.random() * 1600;
-      tone(c, { type: 'square', freq: f, dur: 0.07, gain: 0.05, at: i * 0.07 + Math.random() * 0.03 });
-      hiss(c, { dur: 0.05, gain: 0.08, filter: 'highpass', freq: 4000, at: i * 0.07 });
-    }
-  },
-  drumroll(c) {
-    // A taiko roll that speeds up.
-    let t = 0;
-    for (let i = 0; i < 18; i++) {
-      tone(c, { freq: 90 + (i % 2) * 10, to: 45, dur: 0.14, gain: 0.35 + i * 0.02, at: t });
-      t += Math.max(0.05, 0.16 - i * 0.007);
-    }
-  },
-  stamp(c) {
-    SYNTHS.impact(c);
-    hiss(c, { dur: 0.25, gain: 0.4, filter: 'bandpass', freq: 600, at: 0.02 });
-  },
-  gavel(c) {
-    [0, 0.32, 0.64].forEach((at, i) => {
-      tone(c, { freq: 240, to: 150, dur: 0.09, gain: i === 2 ? 0.8 : 0.5, at });
-      hiss(c, { dur: 0.03, gain: 0.3, filter: 'highpass', freq: 2200, at });
-    });
-  },
-  courtSting(c) {
-    const notes: [number, number, number][] = [
-      [110, 0, 0.22],
-      [103.8, 0.26, 0.22],
-      [87.3, 0.52, 1.1],
-    ];
-    for (const [f, at, dur] of notes) {
-      tone(c, { type: 'sawtooth', freq: f, dur, gain: 0.16, at, attack: 0.02 });
-      tone(c, { type: 'sawtooth', freq: f * 2.003, dur, gain: 0.06, at, attack: 0.02 });
-    }
-  },
-  unlock(c) {
-    tone(c, { type: 'sawtooth', freq: 220, to: 880, dur: 0.35, gain: 0.08 });
-    SYNTHS.tip(c);
-  },
-  win(c) {
-    [523, 659, 784, 1047].forEach((f, i) => tone(c, { type: 'triangle', freq: f, dur: 0.22, gain: 0.2, at: i * 0.1 }));
-    [523, 659, 784].forEach((f) => tone(c, { type: 'triangle', freq: f * 2, dur: 1.0, gain: 0.1, at: 0.42 }));
-  },
-  lose(c) {
-    [392, 370, 349, 330].forEach((f, i) => tone(c, { type: 'sawtooth', freq: f / 2, dur: 0.4, gain: 0.12, at: i * 0.22 }));
-  },
-  phew(c) {
-    hiss(c, { dur: 0.6, gain: 0.25, attack: 0.08, freq: 1400, to: 500 });
-  },
-  whoosh(c) {
-    hiss(c, { dur: 0.35, gain: 0.3, attack: 0.12, freq: 300, to: 2400 });
-  },
-  charge(c) {
-    tone(c, { type: 'sawtooth', freq: 110, to: 880, dur: 0.6, gain: 0.07, attack: 0.3 });
-    hiss(c, { dur: 0.6, gain: 0.15, attack: 0.5, freq: 800, to: 5000 });
-  },
-};
-
-/** Render the short sounds up front (in the lobby) so nothing stutters later. */
-export function preloadSounds() {
-  const c = audioContext();
-  if (!c) return;
-  noise(c);
-  for (const name of Object.keys(ZZFX) as (keyof typeof ZZFX)[]) zzfxBuffer(name);
+  src.buffer = l.reverse ? reversedOf(l.file, b) : b;
+  src.playbackRate.value = l.rate ?? 1;
+  src.connect(g);
+  src.start(t, l.offset ?? 0, l.dur);
 }
 
 export function play(name: SoundName) {
   if (!enabled) return;
   const c = audioContext();
   if (!c || !master) return;
-  if (name in ZZFX) {
-    const b = zzfxBuffer(name as keyof typeof ZZFX);
-    if (!b) return;
-    const src = c.createBufferSource();
-    src.buffer = b;
-    src.connect(master);
-    src.start();
-    return;
+  if (buffers.size === 0) void preloadSounds();
+  for (const l of CUES[name] as Layer[]) playLayer(c, l);
+}
+
+/** Play one recording on its own (used by the music loop). */
+export function playFile(file: File, opts: { at?: number; gain?: number; rate?: number; verb?: number; out?: AudioNode } = {}) {
+  const c = audioContext();
+  const b = buffers.get(file);
+  if (!c || !b || !master) return;
+  const g = c.createGain();
+  g.gain.value = opts.gain ?? 1;
+  g.connect(opts.out ?? master);
+  if (opts.verb && verbIn) {
+    const send = c.createGain();
+    send.gain.value = opts.verb;
+    g.connect(send).connect(verbIn);
   }
-  SYNTHS[name as Exclude<SoundName, keyof typeof ZZFX>](c);
+  const src = c.createBufferSource();
+  src.buffer = b;
+  src.playbackRate.value = opts.rate ?? 1;
+  src.connect(g);
+  src.start(opts.at ?? c.currentTime);
 }

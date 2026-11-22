@@ -1,119 +1,64 @@
-import { audioContext } from './sounds';
+import { audioContext, playFile, preloadSounds } from './sounds';
 
 /**
- * The tension loop: taiko drums, a koto-style pluck in the Japanese "in"
- * scale, and a low drone, composed in code and synthesised live with Web
- * Audio. Original to EyeSpy; nothing is loaded from disk.
+ * The tension loop: recorded taiko and kotsudumi (from the bundled sound
+ * library) over a low, slowly breathing pad. Sparse on purpose: the room is
+ * meant to stay silent.
  */
 
-const BPM = 96;
-const STEP = 60 / BPM / 2; // eighth notes
-// Taiko: big hits (2), small hits (1), rests (0), 16 steps.
-const TAIKO = [2, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 1, 0, 2, 1, 0];
-// Pluck melody (MIDI), "in" scale on D: D Eb G A Bb.
-const KOTO: (number | null)[] = [74, null, 70, null, 69, null, null, 67, null, 63, null, 62, null, null, 63, null];
-const KOTO_B: (number | null)[] = [null, null, 74, null, 75, null, 74, null, 70, null, 69, null, null, null, null, null];
-
-const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
+const BPM = 84;
+const STEP = 60 / BPM / 2;
+// 16 eighth-note steps: B = big taiko, s = small drum, f = taiko fill, . = rest.
+const PATTERN = 'B..s..B.s..sf...';
 
 let bus: GainNode | null = null;
-let drone: OscillatorNode[] = [];
+let pad: AudioNode[] = [];
 let timer: ReturnType<typeof setInterval> | null = null;
 let step = 0;
 let nextTime = 0;
 
-function taiko(c: AudioContext, out: AudioNode, t: number, big: boolean) {
-  const osc = c.createOscillator();
-  const g = c.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(big ? 110 : 160, t);
-  osc.frequency.exponentialRampToValueAtTime(big ? 45 : 70, t + 0.25);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(big ? 0.8 : 0.35, t + 0.005);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? 0.5 : 0.25));
-  osc.connect(g).connect(out);
-  osc.start(t);
-  osc.stop(t + 0.6);
-}
-
-function shaker(c: AudioContext, out: AudioNode, t: number, accent: boolean) {
-  const len = 0.06;
-  const buf = c.createBuffer(1, Math.ceil(c.sampleRate * len), c.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-  const src = c.createBufferSource();
-  src.buffer = buf;
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 7000;
-  const g = c.createGain();
-  g.gain.value = accent ? 0.06 : 0.03;
-  src.connect(hp).connect(g).connect(out);
-  src.start(t);
-}
-
-function koto(c: AudioContext, out: AudioNode, t: number, note: number) {
-  for (const [mult, level] of [
-    [1, 0.16],
-    [2, 0.05],
-    [3, 0.025],
-  ] as const) {
-    const osc = c.createOscillator();
-    const g = c.createGain();
-    osc.type = 'triangle';
-    const f = midi(note) * mult;
-    osc.frequency.setValueAtTime(f * 1.02, t);
-    osc.frequency.exponentialRampToValueAtTime(f, t + 0.04);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(level, t + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-    osc.connect(g).connect(out);
-    osc.start(t);
-    osc.stop(t + 1.3);
-  }
-}
-
 export function startMusic(volume = 0.35) {
   const c = audioContext();
   if (!c || timer) return;
+  void preloadSounds();
   bus = c.createGain();
   bus.gain.value = 0;
-  bus.gain.linearRampToValueAtTime(volume, c.currentTime + 2);
+  bus.gain.linearRampToValueAtTime(volume, c.currentTime + 2.5);
   bus.connect(c.destination);
 
-  // Drone: a low D and its fifth, slowly breathing.
-  const droneGain = c.createGain();
-  droneGain.gain.value = 0.06;
+  // Pad: two detuned saws on a low D, softened and slowly swelling.
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 420;
+  const padGain = c.createGain();
+  padGain.gain.value = 0.05;
   const lfo = c.createOscillator();
   const lfoGain = c.createGain();
-  lfo.frequency.value = 0.15;
-  lfoGain.gain.value = 0.03;
-  lfo.connect(lfoGain).connect(droneGain.gain);
-  drone = [38, 45].map((n) => {
+  lfo.frequency.value = 0.08;
+  lfoGain.gain.value = 0.025;
+  lfo.connect(lfoGain).connect(padGain.gain);
+  const oscs = [73.4, 73.9, 110].map((f) => {
     const o = c.createOscillator();
-    o.type = 'sine';
-    o.frequency.value = midi(n);
-    o.connect(droneGain);
+    o.type = 'sawtooth';
+    o.frequency.value = f;
+    o.connect(lp);
     o.start();
     return o;
   });
   lfo.start();
-  drone.push(lfo);
-  droneGain.connect(bus);
+  lp.connect(padGain).connect(bus);
+  pad = [...oscs, lfo];
 
   step = 0;
-  nextTime = c.currentTime + 0.1;
+  nextTime = c.currentTime + 0.2;
   timer = setInterval(() => {
     if (!bus) return;
-    while (nextTime < c.currentTime + 0.3) {
-      const i = step % 16;
-      const bar = Math.floor(step / 16) % 4;
-      const hit = TAIKO[i]!;
-      if (hit) taiko(c, bus, nextTime, hit === 2);
-      shaker(c, bus, nextTime, i % 4 === 2);
-      const melody = bar === 3 ? KOTO_B : KOTO;
-      const note = melody[i];
-      if (note !== null && note !== undefined && bar !== 0) koto(c, bus, nextTime, note);
+    while (nextTime < c.currentTime + 0.35) {
+      const ch = PATTERN[step % PATTERN.length];
+      const bar = Math.floor(step / PATTERN.length) % 4;
+      if (ch === 'B') playFile('drum-japanese1', { at: nextTime, gain: 0.55, verb: 0.3, out: bus });
+      if (ch === 's') playFile('kotsudumi1', { at: nextTime, gain: 0.35, verb: 0.35, out: bus });
+      if (ch === 'f' && bar === 3) playFile('drum-japanese2', { at: nextTime, gain: 0.5, verb: 0.3, out: bus });
       nextTime += STEP;
       step++;
     }
@@ -126,21 +71,21 @@ export function stopMusic() {
   timer = null;
   if (c && bus) {
     const b = bus;
-    const ds = drone;
+    const nodes = pad;
     b.gain.cancelScheduledValues(c.currentTime);
     b.gain.setValueAtTime(b.gain.value, c.currentTime);
     b.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
     setTimeout(() => {
-      ds.forEach((o) => {
+      for (const n of nodes) {
         try {
-          o.stop();
+          (n as OscillatorNode).stop();
         } catch {
           /* already stopped */
         }
-      });
+      }
       b.disconnect();
     }, 1000);
   }
   bus = null;
-  drone = [];
+  pad = [];
 }

@@ -150,37 +150,23 @@ describe('Judge', () => {
 });
 
 describe('characters', () => {
-  it('every role has at least 3 characters to pick from', () => {
-    for (const [role, list] of Object.entries(ROSTER)) {
-      expect(list.length, role).toBeGreaterThanOrEqual(3);
-      for (const c of list) expect(c.id.startsWith(`${role}.`)).toBe(true);
-    }
-    for (const k of ROSTER.killer) expect(k.finisher).toBeDefined();
+  it('the Killer and the Judge have exclusive characters; other roles play as their public face', () => {
+    expect(ROSTER.killer.map((c) => c.id)).toEqual(['killer.shuten']);
+    expect(ROSTER.killer[0]!.finisher).toBe('realm');
+    expect(ROSTER.judge.map((c) => c.id)).toEqual(['judge.tenbin']);
+    expect(ROSTER.citizen).toEqual([]);
   });
 
-  it('starts with a random character for your role, and you can pick another on the reveal screen', () => {
-    const g = lobby(6);
+  it('deals the exclusive character with the role, and nothing to roles without one', () => {
+    const g = lobby(9);
     g.act('p0', { type: 'start' });
-    const role = g.state.roles.p1!.role;
-    expect(ROSTER[role].map((c) => c.id)).toContain(g.state.roles.p1!.character);
-    const pick = ROSTER[role][2]!.id;
-    g.act('p1', { type: 'pickCharacter', characterId: pick });
-    expect(viewFor(g.state, 'p1').me!.character).toBe(pick);
-    const other = Object.keys(ROSTER).find((r) => r !== role)!;
-    expect(g.try('p1', { type: 'pickCharacter', characterId: ROSTER[other as typeof role][0]!.id }).error).toBe('unknownCharacter');
-  });
-
-  it('starting characters differ within a role while there are spares', () => {
-    for (let seed = 1; seed <= 20; seed++) {
-      const g = lobby(20, seed);
-      g.act('p0', { type: 'start' });
-      const byRole = new Map<string, string[]>();
-      for (const rs of Object.values(g.state.roles)) byRole.set(rs.role, [...(byRole.get(rs.role) ?? []), rs.character!]);
-      for (const [role, chars] of byRole) {
-        const spare = Math.min(chars.length, ROSTER[role as keyof typeof ROSTER].length);
-        expect(new Set(chars).size, `${role} seed ${seed}`).toBe(spare);
-      }
+    for (const rs of Object.values(g.state.roles)) {
+      if (rs.role === 'killer') expect(rs.character).toBe('killer.shuten');
+      else if (rs.role === 'judge') expect(rs.character).toBe('judge.tenbin');
+      else expect(rs.character).toBeNull();
     }
+    const citizen = Object.keys(g.state.roles).find((id) => g.state.roles[id]!.role === 'citizen')!;
+    expect(g.try(citizen, { type: 'pickCharacter', characterId: 'killer.shuten' }).error).toBe('unknownCharacter');
   });
 
   it("stays secret until it's public", () => {
@@ -193,6 +179,6 @@ describe('characters', () => {
     g.advance(4_500);
     const v = viewFor(g.state, 'p6');
     expect(v.phase).toBe('ended');
-    for (const o of v.players) expect(o.character).toMatch(/\./);
+    expect(v.players.find((p) => p.id === 'p0')!.character).toBe('killer.shuten');
   });
 });

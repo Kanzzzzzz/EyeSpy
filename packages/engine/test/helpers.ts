@@ -169,7 +169,7 @@ export function rigged(roles: RoleId[], settings: SettingsPatch = {}, seed = 42)
     const rs = state.roles[id]!;
     rs.role = role;
     rs.team = getRole(role).team;
-    rs.character = ROSTER[role][0]!.id;
+    rs.character = ROSTER[role][0]?.id ?? null;
     rs.data = {};
     rs.knows = role === 'killer' ? roles.flatMap((r, j) => (r === 'killer' && j !== i ? [`p${j}`] : [])) : [];
     if (role === 'lover') {

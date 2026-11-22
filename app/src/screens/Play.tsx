@@ -399,7 +399,7 @@ export function Play() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
           >
-            <AnimeFace look={roleLook(me.character, me.role)} size={86} crop="face" />
+            <AnimeFace look={me.character ? roleLook(me.character, me.role) : publicLook(view.players.find((p) => p.id === me.id)?.avatar ?? 0)} size={86} crop="face" />
             <div className="min-w-0">
               <p className="flex items-center gap-2 font-display text-2xl uppercase leading-none text-paper">
                 {me.roleName} <RoleBadge role={me.role} team={me.team!} size={26} />
