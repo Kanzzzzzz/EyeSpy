@@ -33,6 +33,17 @@ test('admin test tools: practice game, play as any role, stage moments', async (
   await expect(page.getByRole('button', { name: 'Call a hearing', exact: true }).first()).toBeEnabled();
   await page.screenshot({ path: 'screenshots/admin-as-judge.png' });
 
+  // Gaze lock: after opening a panel you're held there for a moment.
+  const panels = page.getByRole('button', { name: /: look at them$/ });
+  await panels.nth(0).click();
+  await page.waitForTimeout(150);
+  await panels.nth(1).click();
+  await expect(page.getByText('Hold their gaze…')).toBeVisible();
+  await page.screenshot({ path: 'screenshots/gaze-lock.png' });
+  await page.waitForTimeout(1600);
+  await panels.nth(1).click();
+  await expect(page.getByRole('button', { name: /: close panel$/ })).toHaveCount(1);
+
   // A bot winks you on demand (you're not immune as the Judge).
   await page.getByRole('button', { name: 'Admin test tools' }).click();
   await page.getByRole('button', { name: 'Wink me' }).first().click();

@@ -49,6 +49,8 @@ test('a full round against bots', async ({ page }) => {
   await page.waitForTimeout(400);
   await shot(page, '07-host-settings');
 
+  // Staged moments switch gaze instantly, so turn the gaze lock off for this run.
+  await room(page, `room.dispatch(me, { type: 'configure', settings: { lookLockMs: 0 } });`);
   await page.getByRole('button', { name: 'Deal the roles' }).click();
   await expect(page.getByText('Hold to look')).toBeVisible();
   // Make this phone a Citizen so every moment (including being winked) can be shown.

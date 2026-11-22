@@ -150,7 +150,9 @@ export class Bot {
       if (me.canArrest && me.shushedKillsLeft === 0) {
         const suspect = this.suspect ? others.find((p) => p.id === this.suspect) : undefined;
         if (suspect) {
-          if (me.lookingAt !== suspect.id) await this.client.send({ type: 'look', targetId: suspect.id });
+          if (me.lookingAt !== suspect.id) {
+            if (me.lookLockedUntil === null || me.lookLockedUntil <= now) await this.client.send({ type: 'look', targetId: suspect.id });
+          }
           else await this.client.send({ type: 'arrest', targetId: suspect.id });
           return;
         }
@@ -191,8 +193,9 @@ export class Bot {
         return;
       }
 
-      // Glance around. Holding a gaze a while gives eye contact a chance to happen.
-      if (!looking || this.chance(this.opts.glanceChance)) {
+      // Glance around (once the gaze lock allows). Holding a gaze a while gives eye contact a chance.
+      const free = me.lookLockedUntil === null || me.lookLockedUntil <= now;
+      if (free && (!looking || this.chance(this.opts.glanceChance))) {
         const next = this.pick(others.filter((p) => p.id !== me.lookingAt)) ?? this.pick(others);
         if (next) await this.client.send({ type: 'look', targetId: next.id });
       }

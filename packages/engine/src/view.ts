@@ -75,6 +75,8 @@ export interface MyView {
   eyeContact: boolean;
   /** How many living players are looking at you right now (not who). */
   watchers: number;
+  /** Server time when you may look at someone else, or null if you're free now. */
+  lookLockedUntil: number | null;
 }
 
 export interface HearingView {
@@ -198,6 +200,10 @@ export function viewFor(state: GameState, playerId: PlayerId | null): PlayerView
       lookingAt: self.lookingAt,
       eyeContact: self.lookingAt !== null && hasEyeContact(state, self.id, self.lookingAt),
       watchers,
+      lookLockedUntil:
+        self.alive && self.lookingAt !== null && self.lookedAt !== null && self.lookedAt + state.settings.lookLockMs > state.now
+          ? self.lookedAt + state.settings.lookLockMs
+          : null,
     };
   }
 

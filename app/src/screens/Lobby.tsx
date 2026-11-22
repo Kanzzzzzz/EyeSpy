@@ -243,6 +243,7 @@ function HostSettings() {
         <Stepper label="Death delay" value={s.deathDelayMs / 1000} min={1} max={10} format={(v) => `${v}s`} onChange={(v) => configure({ deathDelayMs: v * 1000 })} />
         <Stepper label="Wink cooldown" value={s.winkCooldownMs / 5000} min={0} max={12} format={(v) => secs(v * 5000)} onChange={(v) => configure({ winkCooldownMs: v * 5000 })} />
         <Stepper label="Raise cooldown" value={s.raiseCooldownMs / 5000} min={0} max={6} format={(v) => secs(v * 5000)} onChange={(v) => configure({ raiseCooldownMs: v * 5000 })} />
+        <Stepper label="Gaze lock" value={s.lookLockMs / 500} min={0} max={10} format={(v) => `${v / 2}s`} onChange={(v) => configure({ lookLockMs: v * 500 })} />
         <Toggle label="Victims see their killer" hint="On their death screen. They must stay silent." checked={s.victimsSeeKiller} onChange={(v) => configure({ victimsSeeKiller: v })} />
       </Card>
     </>

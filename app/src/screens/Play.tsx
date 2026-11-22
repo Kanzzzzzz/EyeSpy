@@ -127,6 +127,9 @@ export function Play() {
           : 'neutral';
   const gaze: Gaze = !target ? 'down' : contact || (gesture && gesture.id === target.id) ? 'you' : awayGaze(target.id);
   const canAct = me.alive && !!target && target.alive && view.phase === 'playing';
+  const lockLeft = useCountdown(me.alive ? me.lookLockedUntil : null);
+  const lockMs = view.settings.lookLockMs;
+  const locked = lockLeft > 0 && pendingLook === undefined;
   const noContactHint = target ? `${target.name} isn't looking at you` : 'Open a panel first';
 
   return (
@@ -226,7 +229,12 @@ export function Play() {
             >
               {!target.alive ? 'Out' : contact ? 'Eye contact!' : 'Looking away'}
             </div>
-            {lookingAt && (
+            {locked && lockMs > 0 && (
+              <div className="absolute inset-x-0 bottom-0 h-2 bg-black/60" aria-label={`Gaze locked for ${Math.ceil(lockLeft / 100) / 10}s`}>
+                <div className="h-full bg-spot" style={{ width: `${Math.min(100, (lockLeft / lockMs) * 100)}%`, transition: 'width 100ms linear' }} />
+              </div>
+            )}
+            {lookingAt && !locked && (
               <button
                 type="button"
                 className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center border-[3px] border-black bg-ink-800 font-display text-lg text-paper"
@@ -327,6 +335,7 @@ export function Play() {
                 style={{
                   borderColor: open ? color.cyan.DEFAULT : p.alive ? color.paper.DEFAULT : color.ink[500],
                   clipPath: panelClip(i),
+                  opacity: locked && !open ? 0.55 : 1,
                   boxShadow: open ? `0 0 18px ${color.cyan.glow}` : undefined,
                 }}
                 aria-label={`${p.name}${p.alive ? '' : ' (out)'}: ${open ? 'close panel' : 'look at them'}`}

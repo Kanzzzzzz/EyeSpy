@@ -77,6 +77,13 @@ export function adminUnlock(state: GameState, playerId: PlayerId): GameState {
   return s;
 }
 
+/** Release players from their gaze lock (so a staged look can happen right away). */
+export function adminFreeGaze(state: GameState, ids: PlayerId[]): GameState {
+  const s = structuredClone(state);
+  for (const p of s.players) if (ids.includes(p.id)) p.lookedAt = null;
+  return s;
+}
+
 /** Lift the Shush lock (so the Sheriff can arrest right away). */
 export function adminLiftShush(state: GameState): GameState {
   if (state.shushLockKillsRemaining === 0) return state;

@@ -54,6 +54,7 @@ const settingsPatch = z
     revealTimeoutMs: ms,
     arrestVerdictMs: ms,
     hearingMs: ms,
+    lookLockMs: ms,
     raisesToUnlock: z.number().int().min(0).max(20),
     shushLockKills: z.number().int().min(0).max(20),
   })

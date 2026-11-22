@@ -1,4 +1,4 @@
-import { adminLiftShush, adminSetRole, adminUnlock, type ActionBody, type RoleId } from '@eyespy/engine';
+import { adminFreeGaze, adminLiftShush, adminSetRole, adminUnlock, type ActionBody, type RoleId } from '@eyespy/engine';
 import { useGame } from './store';
 
 /**
@@ -50,14 +50,19 @@ export const admin = {
   },
   /** A bot opens your panel (and you open theirs): instant eye contact. */
   eyeContact(botId: string) {
+    const r = room();
     const id = me();
-    if (!id) return;
+    if (!r || !id) return;
+    r.admin((s) => adminFreeGaze(s, [botId, id]));
     as(botId, { type: 'look', targetId: id });
-    useGame.getState().look(botId);
+    as(id, { type: 'look', targetId: botId });
   },
   lookAtMe(botId: string) {
+    const r = room();
     const id = me();
-    if (id) as(botId, { type: 'look', targetId: id });
+    if (!r || !id) return;
+    r.admin((s) => adminFreeGaze(s, [botId]));
+    as(botId, { type: 'look', targetId: id });
   },
   /** Make a bot wink you right now (it becomes a Killer first if it isn't one). */
   winkMe(botId: string) {
@@ -65,7 +70,7 @@ export const admin = {
     const id = me();
     if (!r || !id) return;
     if (r.state.roles[botId]?.role !== 'killer') r.admin((s) => adminSetRole(s, botId, 'killer'));
-    r.admin((s) => adminUnlock(s, botId));
+    r.admin((s) => adminFreeGaze(adminUnlock(s, botId), [botId, id]));
     as(botId, { type: 'look', targetId: id });
     as(id, { type: 'look', targetId: botId });
     as(botId, { type: 'wink', targetId: id });
@@ -81,7 +86,7 @@ export const admin = {
       const next = structuredClone(s);
       const rs = next.roles[botId];
       if (rs) rs.lastRaiseAt = null;
-      return next;
+      return adminFreeGaze(next, [botId, id]);
     });
     as(botId, { type: 'look', targetId: id });
     as(id, { type: 'look', targetId: botId });

@@ -50,6 +50,8 @@ export interface Player {
    * Secret: other phones only learn whether this player is looking at *them*.
    */
   lookingAt: PlayerId | null;
+  /** When this player last opened a panel; they're held there for `lookLockMs`. */
+  lookedAt: number | null;
 }
 
 export interface RoleState {
@@ -92,6 +94,8 @@ export interface Settings {
   revealTimeoutMs: number;
   arrestVerdictMs: number;
   hearingMs: number;
+  /** After opening a panel you must hold that gaze this long before looking elsewhere. */
+  lookLockMs: number;
   raisesToUnlock: number;
   shushLockKills: number;
 }

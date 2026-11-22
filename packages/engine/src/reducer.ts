@@ -376,6 +376,7 @@ class Engine implements RoleContext {
       arrested: false,
       votedOut: false,
       lookingAt: null,
+      lookedAt: null,
     });
     if (asHost || !s.hostId) s.hostId = playerId;
     this.emit({ type: 'PlayerJoined', playerId }, 'all');
@@ -452,6 +453,7 @@ class Engine implements RoleContext {
       p.arrested = false;
       p.votedOut = false;
       p.lookingAt = null;
+      p.lookedAt = null;
     }
   }
 
@@ -585,7 +587,12 @@ class Engine implements RoleContext {
   // Play
   // -------------------------------------------------------------------------
 
-  /** Open someone's panel (or close yours with null). Ghosts may look too, but nobody sees them. */
+  /**
+   * Open someone's panel (or close yours with null). Once open, a living
+   * player must hold that gaze for `lookLockMs` before looking elsewhere, so
+   * eye contact lasts long enough to act on. Ghosts may look freely; nobody
+   * sees them.
+   */
   private look(by: PlayerId, targetId: PlayerId | null): void {
     this.requirePhase(...LOOK_PHASES);
     const p = this.player(by);
@@ -593,7 +600,12 @@ class Engine implements RoleContext {
       if (targetId === by) reject('invalidTarget', "You can't look at yourself.");
       this.player(targetId);
     }
+    const lock = this.state.settings.lookLockMs;
+    if (p.alive && p.lookingAt !== null && p.lookedAt !== null && this.now - p.lookedAt < lock) {
+      reject('cooldown', 'Hold their gaze a moment…');
+    }
     p.lookingAt = targetId;
+    p.lookedAt = targetId === null ? null : this.now;
   }
 
   private wink(by: PlayerId, targetId: PlayerId): void {

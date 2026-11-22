@@ -333,6 +333,17 @@ export const useGame = create<State>((set, get) => {
     look(targetId) {
       const client = get().client;
       if (!client) return;
+      const me = get().snap?.view?.me;
+      const current = get().pendingLook !== undefined ? get().pendingLook : me?.lookingAt;
+      if (targetId === current) return;
+      // Gaze lock: you must hold the panel you just opened for a moment.
+      if (me?.alive && me.lookLockedUntil && me.lookLockedUntil > client.serverNow()) {
+        play('error');
+        void vibrate(HAPTICS.error);
+        const at = Date.now();
+        set((s) => ({ alerts: [...s.alerts.filter((a) => a.title !== 'Hold their gaze…'), { id: -at, at, style: 'toast', title: 'Hold their gaze…', tone: 'neutral', ttl: 1200 }] }));
+        return;
+      }
       set({ pendingLook: targetId });
       play('whoosh');
       queueLook(client, targetId);

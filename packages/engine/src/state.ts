@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   revealTimeoutMs: 30000,
   arrestVerdictMs: 4500,
   hearingMs: 20000,
+  lookLockMs: 1500,
   raisesToUnlock: 3,
   shushLockKills: 2,
 };
@@ -31,6 +32,7 @@ export const SETTING_LIMITS = {
   revealTimeoutMs: [5000, 120000],
   arrestVerdictMs: [1500, 15000],
   hearingMs: [10000, 60000],
+  lookLockMs: [0, 5000],
   raisesToUnlock: [1, 10],
   shushLockKills: [1, 5],
 } as const;

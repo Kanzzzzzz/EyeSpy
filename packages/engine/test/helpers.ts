@@ -160,7 +160,7 @@ export function rigged(roles: RoleId[], settings: SettingsPatch = {}, seed = 42)
   const special = Object.fromEntries(
     roles.filter((r) => getRole(r).special).map((r) => [r, true]),
   );
-  g.configure({ ...settings, roles: counts, special });
+  g.configure({ lookLockMs: 0, ...settings, roles: counts, special });
   g.act('p0', { type: 'start' });
   const state = structuredClone(g.state);
   let pendingLover: string | null = null;
