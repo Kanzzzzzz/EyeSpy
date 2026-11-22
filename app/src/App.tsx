@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isNative } from './platform/device';
 import { useGame } from './state/store';
 import { FxLayer } from './fx/FxLayer';
+import { ErrorBoundary } from './ui/ErrorBoundary';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
 import { Join } from './screens/Join';
@@ -99,7 +100,11 @@ export function App() {
             {screen === 'join' && <Join key="join" />}
             {screen === 'settings' && <Settings key="settings" />}
             {screen === 'permissions' && <Permissions key="permissions" />}
-            {screen === 'game' && <Game key="game" />}
+            {screen === 'game' && (
+            <ErrorBoundary key="game" onReset={() => useGame.setState({ alerts: [] })}>
+              <Game />
+            </ErrorBoundary>
+          )}
           </AnimatePresence>
         )}
       </div>

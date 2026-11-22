@@ -211,7 +211,8 @@ class Fx {
       this.raf = 0;
       return;
     }
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    // rAF timestamps can be a hair older than performance.now(): never step backwards.
+    const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000));
     this.last = now;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -243,7 +244,7 @@ class Fx {
           ctx.strokeStyle = p.color;
           ctx.lineWidth = 3 * (1 - t);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size + p.vx * t * 0.35, 0, TAU);
+          ctx.arc(p.x, p.y, Math.max(0, p.size + p.vx * t * 0.35), 0, TAU);
           ctx.stroke();
           break;
         }
@@ -271,7 +272,7 @@ class Fx {
           ctx.globalAlpha *= 0.55;
           ctx.fillStyle = p.color;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * (1 + t * 1.6), 0, TAU);
+          ctx.arc(p.x, p.y, Math.max(0, p.size * (1 + t * 1.6)), 0, TAU);
           ctx.fill();
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 2;

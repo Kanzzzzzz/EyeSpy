@@ -1,6 +1,6 @@
 import confetti from 'canvas-confetti';
 import { motion, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { character, getRole, type LoggedEvent, type PublicPlayer, type WinReason } from '@eyespy/engine';
 import { AnimeFace } from '../art/AnimeFace';
 import { publicLook, roleLook } from '../art/characters';
@@ -23,10 +23,16 @@ export function GameOver() {
   const send = useGame((s) => s.send);
   const leaveGame = useGame((s) => s.leaveGame);
   const reduce = useReducedMotion();
-  const result = view.result!;
-  const won = !!me && result.winners.includes(me);
+  // After "Play again" the view moves on while this screen animates out:
+  // keep showing the round that just ended.
+  const lastResult = useRef(view.result);
+  if (view.result) lastResult.current = view.result;
+  const lastPlayers = useRef(view.players);
+  if (view.phase === 'ended') lastPlayers.current = view.players;
+  const result = lastResult.current;
+  const won = !!me && !!result && result.winners.includes(me);
   const isHost = view.hostId === me;
-  const winColor = result.winner === 'town' ? color.team.town : color.team.killers;
+  const winColor = result?.winner === 'town' ? color.team.town : color.team.killers;
 
   useEffect(() => {
     fx.flash('#FFFFFF', 220);
@@ -41,8 +47,10 @@ export function GameOver() {
     });
   }, [won, reduce, winColor]);
 
-  const byId = useMemo(() => Object.fromEntries(view.players.map((p) => [p.id, p])), [view.players]);
+  const players = lastPlayers.current;
+  const byId = useMemo(() => Object.fromEntries(players.map((p) => [p.id, p])), [players]);
 
+  if (!result) return null;
   return (
     <Screen lines>
       <motion.div className="mt-6 text-center" initial={reduce ? { opacity: 0 } : { scale: 2.2, opacity: 0, rotate: -6 }} animate={{ scale: 1, opacity: 1, rotate: -2 }} transition={m.bouncy}>
@@ -62,7 +70,7 @@ export function GameOver() {
       <Card className="mt-7" tone={winColor}>
         <Label jp="キャスト">The cast</Label>
         <ul className="flex flex-col gap-2.5">
-          {view.players.map((p, i) => {
+          {players.map((p, i) => {
             const entry = character(p.character);
             const winner = result.winners.includes(p.id);
             return (
