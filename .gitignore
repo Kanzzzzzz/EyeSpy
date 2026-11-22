@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+app/test-results/
+app/playwright-report/
+.dev-host/
+# Capacitor / native build output
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
+app/android/local.properties
+app/android/capacitor-cordova-android-plugins/
+app/android/app/src/main/assets/public/
+app/ios/App/Pods/
+app/ios/App/App/public/
+app/ios/DerivedData/
+app/plugins/*/android/build/
+.idea/
+*.iml

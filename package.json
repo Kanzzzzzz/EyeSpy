@@ -1,0 +1,29 @@
+{
+  "name": "eyespy",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.9",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm --filter @eyespy/app dev",
+    "dev:host": "pnpm --filter @eyespy/dev-host start",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "android": "pnpm --filter @eyespy/app android",
+    "ios": "pnpm --filter @eyespy/app ios",
+    "screenshots": "pnpm --filter @eyespy/app screenshots"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "eslint": "9.39.1",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "16.4.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2",
+    "vitest": "3.2.4"
+  }
+}
