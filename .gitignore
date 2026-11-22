@@ -21,3 +21,4 @@ app/ios/DerivedData/
 app/plugins/*/android/build/
 .idea/
 *.iml
+app/screenshots/

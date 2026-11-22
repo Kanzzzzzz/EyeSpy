@@ -127,7 +127,7 @@ These are Kanz's rules. The room plays in silence and every action goes through 
 | Decoy | Killers | Sends fake winks: the target's phone counts down, then shows "Phew, just a twitch" |
 | Insomniac | Town | Feels a nameless buzz every time anyone winks |
 
-Every role is one Dart file that declares its team, what it knows at the start, its abilities (unlock rules such as 3 raises, uses and cooldowns), how it reacts to events, and how it affects the win check. That makes each new role a self-contained task.
+Every role is one TypeScript file that declares its team, what it knows at the start, its abilities (unlock rules such as 3 raises, uses and cooldowns), how it reacts to events, and how it affects the win check. That makes each new role a self-contained task.
 
 ## Game state machine and architecture
 

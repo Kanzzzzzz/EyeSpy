@@ -1,0 +1,30 @@
+name: iOS build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build web bundle and sync
+        working-directory: app
+        run: pnpm build && npx cap sync ios
+      - name: Install pods
+        working-directory: app/ios/App
+        run: pod install
+      - name: Build for the simulator (unsigned)
+        working-directory: app/ios/App
+        run: >
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

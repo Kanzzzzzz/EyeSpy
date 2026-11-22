@@ -2,8 +2,11 @@
   "name": "eyespy",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "packageManager": "pnpm@10.34.9",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "pnpm --filter @eyespy/app dev",
     "dev:host": "pnpm --filter @eyespy/dev-host start",

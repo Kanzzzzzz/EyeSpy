@@ -1,0 +1,21 @@
+{
+  "name": "@eyespy/local-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor plugin: a WebSocket server on the phone so it can host an EyeSpy game offline.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "files": ["src", "android/src", "android/build.gradle", "ios/Sources", "EyespyLocalServer.podspec", "Package.swift"],
+  "capacitor": {
+    "android": { "src": "android" },
+    "ios": { "src": "ios" }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/core": "7.4.4"
+  }
+}
