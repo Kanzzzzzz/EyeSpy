@@ -103,3 +103,27 @@ export function nextRandom(rngState: number): [number, number] {
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return [((t ^ (t >>> 14)) >>> 0) / 4294967296, next];
 }
+
+/**
+ * Push every pending deadline back by `ms`. Used when a crashed host comes
+ * back, so a 3-second countdown doesn't expire while the host was down.
+ */
+export function shiftTime(state: GameState, ms: number, now: number): GameState {
+  const s = structuredClone(state);
+  if (ms > 0) {
+    for (const d of s.pendingDeaths) d.at += ms;
+    for (const t of s.timers) t.at += ms;
+    if (s.revealDeadline !== null) s.revealDeadline += ms;
+    if (s.pendingArrest) {
+      s.pendingArrest.startedAt += ms;
+      s.pendingArrest.verdictAt += ms;
+    }
+    for (const rs of Object.values(s.roles)) {
+      if (rs.lastWinkAt !== null) rs.lastWinkAt += ms;
+      if (rs.lastRaiseAt !== null) rs.lastRaiseAt += ms;
+      for (const k of Object.keys(rs.abilityLastUsedAt)) rs.abilityLastUsedAt[k]! += ms;
+    }
+  }
+  s.now = Math.max(s.now, now);
+  return s;
+}
