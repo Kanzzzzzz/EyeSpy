@@ -1,5 +1,6 @@
 import { getRole, ROLES } from './roles';
 import type { AbilityDefinition, RoleContext, WinkOutcome } from './roles/types';
+import { isCharacterFor, ROSTER } from './roster';
 import {
   AVATAR_COUNT,
   MAX_PLAYERS,
@@ -11,6 +12,7 @@ import {
   type ErrorCode,
   type GameEvent,
   type GameState,
+  type Phase,
   type Player,
   type PlayerId,
   type ReduceResult,
@@ -38,10 +40,14 @@ function reject(code: ErrorCode, message?: string): never {
 
 const MAX_NAME = 16;
 
-function newRoleState(role: RoleId): RoleState {
+/** Phases in which players can open each other's panels. */
+const LOOK_PHASES: Phase[] = ['playing', 'arrest', 'hearing'];
+
+function newRoleState(role: RoleId, character: string | null): RoleState {
   return {
     role,
     team: getRole(role).team,
+    character,
     knows: [],
     raisesSent: 0,
     winksSent: 0,
@@ -62,10 +68,18 @@ function clamp(n: unknown, [lo, hi]: readonly [number, number], fallback: number
 export function hasDueWork(state: GameState, at: number): boolean {
   if (state.phase === 'reveal') return state.revealDeadline !== null && at >= state.revealDeadline;
   if (state.phase === 'arrest') return !!state.pendingArrest && at >= state.pendingArrest.verdictAt;
+  if (state.phase === 'hearing') return !!state.hearing && at >= state.hearing.endsAt;
   if (state.phase === 'playing') {
     return state.pendingDeaths.some((d) => d.at <= at) || state.timers.some((t) => t.at <= at);
   }
   return false;
+}
+
+/** Both alive and each looking into the other's eyes. */
+export function hasEyeContact(state: GameState, a: PlayerId, b: PlayerId): boolean {
+  const pa = state.players.find((p) => p.id === a);
+  const pb = state.players.find((p) => p.id === b);
+  return !!pa && !!pb && pa.alive && pb.alive && pa.lookingAt === b && pb.lookingAt === a;
 }
 
 /**
@@ -77,6 +91,11 @@ export function reduce(prev: GameState, action: Action): ReduceResult {
   const at = Math.max(action.at, prev.now);
   if (action.type === 'tick' && action.by === SYSTEM && !hasDueWork(prev, at)) {
     return { state: prev, events: [] };
+  }
+  // Looking at the panel you already have open changes nothing.
+  if (action.type === 'look' && LOOK_PHASES.includes(prev.phase)) {
+    const p = prev.players.find((x) => x.id === action.by);
+    if (p && p.lookingAt === (action.targetId ?? null)) return { state: prev, events: [] };
   }
   // Logged events are never mutated, so the log can be shared rather than deep-copied.
   const state = structuredClone({ ...prev, log: [] }) as GameState;
@@ -108,6 +127,7 @@ class Engine implements RoleContext {
 
   emit(event: GameEvent, to: Audience): void {
     const audience = to === 'all' ? 'all' : [...new Set(to)];
+    if (audience !== 'all' && audience.length === 0) return;
     this.state.log.push({ seq: this.state.nextSeq++, at: this.now, to: audience, event });
     this.queue.push(event);
   }
@@ -163,13 +183,21 @@ class Engine implements RoleContext {
 
   changeRole(id: PlayerId, role: RoleId): void {
     const prev = this.roleOf(id);
-    const next = newRoleState(role);
+    const next = newRoleState(role, ROSTER[role][0]?.id ?? null);
     next.raisesSent = prev.raisesSent;
     next.winksSent = prev.winksSent;
     next.lastRaiseAt = prev.lastRaiseAt;
     this.state.roles[id] = next;
     getRole(role).onAssigned?.(this, id);
     this.emit({ type: 'RoleChanged', playerId: id, role, team: next.team }, [id]);
+  }
+
+  startHearing(judgeId: PlayerId): void {
+    const s = this.state;
+    if (s.phase !== 'playing') reject('wrongPhase', 'A hearing can only be called during play.');
+    s.phase = 'hearing';
+    s.hearing = { judgeId, startedAt: this.now, endsAt: this.now + s.settings.hearingMs, votes: {} };
+    this.emit({ type: 'HearingStarted', endsAt: s.hearing.endsAt, judgeCharacter: this.roleOf(judgeId).character }, 'all');
   }
 
   random(): number {
@@ -214,6 +242,10 @@ class Engine implements RoleContext {
         return this.start(action.by);
       case 'ready':
         return this.ready(action.by);
+      case 'pickCharacter':
+        return this.pickCharacter(action.by, action.characterId);
+      case 'look':
+        return this.look(action.by, action.targetId ?? null);
       case 'wink':
         return this.wink(action.by, action.targetId);
       case 'raiseEyebrow':
@@ -222,6 +254,8 @@ class Engine implements RoleContext {
         return this.useAbility(action.by, action.abilityId, action.targetId ?? null, action.payload ?? null);
       case 'arrest':
         return this.arrest(action.by, action.targetId);
+      case 'vote':
+        return this.vote(action.by, action.targetId);
       case 'playAgain':
         return this.playAgain(action.by);
       case 'tick':
@@ -269,7 +303,7 @@ class Engine implements RoleContext {
     if (by !== this.state.hostId) reject('notHost', 'Only the host can do that.');
   }
 
-  private requirePhase(...phases: GameState['phase'][]): void {
+  private requirePhase(...phases: Phase[]): void {
     if (!phases.includes(this.state.phase)) reject('wrongPhase', `Not allowed during ${this.state.phase}.`);
   }
 
@@ -287,6 +321,24 @@ class Engine implements RoleContext {
     if (!t || !t.alive) reject('invalidTarget', 'That player is out of the game.');
     if (t.id === by) reject('invalidTarget', "You can't target yourself.");
     return t;
+  }
+
+  /** The actor must have the target's panel open. */
+  private requireLooking(actor: Player, target: Player): void {
+    if (actor.lookingAt !== target.id) reject('notLooking', `Open ${target.name}'s panel first.`);
+  }
+
+  /** Eye gestures need both players looking into each other's eyes. */
+  private requireEyeContact(actor: Player, target: Player): void {
+    this.requireLooking(actor, target);
+    if (!hasEyeContact(this.state, actor.id, target.id)) {
+      reject('noEyeContact', `No eye contact: ${target.name} isn't looking at you.`);
+    }
+  }
+
+  /** Everyone (but `except`) whose panel is on the actor right now. */
+  private watchersOf(actorId: PlayerId, except: PlayerId): PlayerId[] {
+    return this.state.players.filter((p) => p.id !== actorId && p.id !== except && p.lookingAt === actorId).map((p) => p.id);
   }
 
   private sheriffIds(): PlayerId[] {
@@ -322,6 +374,8 @@ class Engine implements RoleContext {
       connected: true,
       ready: false,
       arrested: false,
+      votedOut: false,
+      lookingAt: null,
     });
     if (asHost || !s.hostId) s.hostId = playerId;
     this.emit({ type: 'PlayerJoined', playerId }, 'all');
@@ -380,6 +434,7 @@ class Engine implements RoleContext {
         sheriff: clamp(r.sheriff, lim, s.roles.sheriff),
         shush: clamp(r.shush, [0, 3], s.roles.shush),
         snitch: clamp(r.snitch, [0, 3], s.roles.snitch),
+        judge: clamp(r.judge, [0, 2], s.roles.judge),
         loverPairs: clamp(r.loverPairs, [0, 5], s.roles.loverPairs),
       };
       s.autoRoles = false;
@@ -387,6 +442,17 @@ class Engine implements RoleContext {
     if (typeof patch.autoRoles === 'boolean') s.autoRoles = patch.autoRoles;
     this.applyAutoRoles();
     this.emit({ type: 'SettingsChanged' }, 'all');
+  }
+
+  private resetPlayers(): void {
+    for (const p of this.state.players) {
+      p.alive = true;
+      p.dying = false;
+      p.ready = false;
+      p.arrested = false;
+      p.votedOut = false;
+      p.lookingAt = null;
+    }
   }
 
   private start(by: PlayerId): void {
@@ -407,6 +473,7 @@ class Engine implements RoleContext {
       ...Array<RoleId>(r.sheriff).fill('sheriff'),
       ...Array<RoleId>(r.shush).fill('shush'),
       ...Array<RoleId>(r.snitch).fill('snitch'),
+      ...Array<RoleId>(r.judge).fill('judge'),
       ...Array<RoleId>(r.loverPairs * 2).fill('lover'),
       ...enabledSpecialRoles(s.settings),
     ];
@@ -418,15 +485,21 @@ class Engine implements RoleContext {
     }
 
     s.roles = {};
-    order.forEach((id, i) => (s.roles[id] = newRoleState(deck[i]!)));
-    for (const p of s.players) {
-      p.alive = true;
-      p.dying = false;
-      p.ready = false;
-      p.arrested = false;
-    }
+    const used = new Set<string>();
+    order.forEach((id, i) => {
+      const role = deck[i]!;
+      // A random character to start with, avoiding repeats within a role while
+      // there are spares. The player can pick another on the reveal screen.
+      const fresh = ROSTER[role].filter((c) => !used.has(c.id));
+      const options = fresh.length ? fresh : ROSTER[role];
+      const character = options[Math.floor(this.random() * options.length)]?.id ?? null;
+      if (character) used.add(character);
+      s.roles[id] = newRoleState(role, character);
+    });
+    this.resetPlayers();
     s.pendingDeaths = [];
     s.pendingArrest = null;
+    s.hearing = null;
     s.shushLockKillsRemaining = 0;
     s.timers = [];
     s.killCount = 0;
@@ -457,6 +530,15 @@ class Engine implements RoleContext {
     this.maybeEndReveal();
   }
 
+  private pickCharacter(by: PlayerId, characterId: string): void {
+    this.requirePhase('reveal');
+    const rs = this.roleOf(by);
+    if (typeof characterId !== 'string' || !isCharacterFor(rs.role, characterId)) {
+      reject('unknownCharacter', "That character isn't available for your role.");
+    }
+    rs.character = characterId;
+  }
+
   private maybeEndReveal(): void {
     if (this.state.phase !== 'reveal') return;
     const waiting = this.state.players.filter((p) => p.connected && !p.ready);
@@ -477,6 +559,7 @@ class Engine implements RoleContext {
     s.roles = {};
     s.pendingDeaths = [];
     s.pendingArrest = null;
+    s.hearing = null;
     s.revealDeadline = null;
     s.shushLockKillsRemaining = 0;
     s.timers = [];
@@ -485,12 +568,7 @@ class Engine implements RoleContext {
     s.deathOrder = [];
     s.killCount = 0;
     s.log = [];
-    for (const p of s.players) {
-      p.alive = true;
-      p.dying = false;
-      p.ready = false;
-      p.arrested = false;
-    }
+    this.resetPlayers();
     this.applyAutoRoles();
     this.emit({ type: 'LobbyReset' }, 'all');
   }
@@ -507,15 +585,27 @@ class Engine implements RoleContext {
   // Play
   // -------------------------------------------------------------------------
 
+  /** Open someone's panel (or close yours with null). Ghosts may look too, but nobody sees them. */
+  private look(by: PlayerId, targetId: PlayerId | null): void {
+    this.requirePhase(...LOOK_PHASES);
+    const p = this.player(by);
+    if (targetId !== null) {
+      if (targetId === by) reject('invalidTarget', "You can't look at yourself.");
+      this.player(targetId);
+    }
+    p.lookingAt = targetId;
+  }
+
   private wink(by: PlayerId, targetId: PlayerId): void {
     this.requirePhase('playing');
-    this.requireActive(by);
+    const killer = this.requireActive(by);
     const rs = this.roleOf(by);
     const def = getRole(rs.role);
     if (!def.canWink) reject('notAllowed', 'Only the Killer can wink.');
     const target = this.requireTarget(by, targetId);
     if (getRole(this.roleOf(target.id).role).isKiller) reject('invalidTarget', "That's a fellow Killer.");
     if (target.dying) reject('invalidTarget', 'That player is already winked.');
+    this.requireEyeContact(killer, target);
     const cd = this.state.settings.winkCooldownMs;
     if (rs.lastWinkAt !== null && this.now - rs.lastWinkAt < cd) {
       reject('cooldown', 'Your eye needs a rest.');
@@ -523,6 +613,8 @@ class Engine implements RoleContext {
     rs.lastWinkAt = this.now;
     rs.winksSent += 1;
     this.emit({ type: 'WinkSent', killerId: by, targetId: target.id, fake: false }, [by]);
+    // Anyone looking at the Killer right now sees the wink (but not who it hit).
+    this.emit({ type: 'SawWink', winkerId: by }, this.watchersOf(by, target.id));
 
     const outcome = this.resolveWinkAttempt(by, target.id);
     if (outcome?.kind === 'immune') return;
@@ -533,7 +625,13 @@ class Engine implements RoleContext {
     const deadline = this.now + this.state.settings.deathDelayMs;
     this.state.pendingDeaths.push({ victimId, killerId: by, at: deadline });
     this.emit(
-      { type: 'Winked', targetId: victimId, killerId: this.state.settings.victimsSeeKiller ? by : null, deadline },
+      {
+        type: 'Winked',
+        targetId: victimId,
+        killerId: this.state.settings.victimsSeeKiller ? by : null,
+        deadline,
+        killerCharacter: rs.character,
+      },
       [victimId],
     );
   }
@@ -551,9 +649,11 @@ class Engine implements RoleContext {
 
   private raise(by: PlayerId, targetId: PlayerId): void {
     this.requirePhase('playing');
-    this.requireActive(by);
-    const target = this.requireTarget(by, targetId);
+    const raiser = this.requireActive(by);
     const rs = this.roleOf(by);
+    if (!getRole(rs.role).canRaise) reject('notAllowed', 'Only the Shush, the Snitch and the Judge can raise an eyebrow.');
+    const target = this.requireTarget(by, targetId);
+    this.requireEyeContact(raiser, target);
     const cd = this.state.settings.raiseCooldownMs;
     if (rs.lastRaiseAt !== null && this.now - rs.lastRaiseAt < cd) {
       reject('cooldown', 'Give your eyebrows a moment.');
@@ -561,6 +661,7 @@ class Engine implements RoleContext {
     rs.lastRaiseAt = this.now;
     rs.raisesSent += 1;
     this.emit({ type: 'EyebrowRaised', byId: by, targetId: target.id }, [target.id, by]);
+    this.emit({ type: 'SawRaise', raiserId: by }, this.watchersOf(by, target.id));
     if (rs.raisesSent === this.state.settings.raisesToUnlock) {
       for (const ability of getRole(rs.role).abilities ?? []) {
         if (ability.unlock === 'raises') {
@@ -578,7 +679,7 @@ class Engine implements RoleContext {
     if (actor.alive) {
       if (actor.dying) reject('dead', "You're out of the game.");
       ability = getRole(rs.role).abilities?.find((a) => a.id === abilityId);
-    } else if (!actor.arrested) {
+    } else if (!actor.arrested && !actor.votedOut) {
       ability = ghostAbilitiesFor(this.state).find((a) => a.id === abilityId);
     }
     if (!ability) reject('unknownAbility', "You can't do that.");
@@ -592,7 +693,13 @@ class Engine implements RoleContext {
     const last = rs.abilityLastUsedAt[ability.id];
     if (cd > 0 && last !== undefined && this.now - last < cd) reject('cooldown', 'Not ready yet.');
 
-    const target = ability.target === 'player' ? this.requireTarget(by, targetId).id : null;
+    let target: PlayerId | null = null;
+    if (ability.target === 'player') {
+      const t = this.requireTarget(by, targetId);
+      if (ability.gesture) this.requireEyeContact(actor, t);
+      else this.requireLooking(actor, t);
+      target = t.id;
+    }
     const problem = ability.validate?.(this, by, target, payload);
     if (problem) reject('notAllowed', problem);
 
@@ -600,28 +707,36 @@ class Engine implements RoleContext {
     rs.abilityLastUsedAt[ability.id] = this.now;
     this.emit({ type: 'AbilityUsed', playerId: by, abilityId: ability.id, targetId: target }, [by]);
     ability.apply(this, by, target, payload);
+    if (ability.gesture === 'wink' && target) {
+      this.emit({ type: 'SawWink', winkerId: by }, this.watchersOf(by, target));
+    }
   }
 
   private arrest(by: PlayerId, targetId: PlayerId): void {
     this.requirePhase('playing');
-    this.requireActive(by);
+    const sheriff = this.requireActive(by);
     const def = getRole(this.roleOf(by).role);
     if (!def.canArrest) reject('notAllowed', 'Only the Sheriff can arrest.');
     if (this.state.shushLockKillsRemaining > 0) reject('shushed', "You've been shushed. No arrests yet.");
     const target = this.requireTarget(by, targetId);
+    this.requireLooking(sheriff, target);
     const verdictAt = this.now + this.state.settings.arrestVerdictMs;
     this.state.phase = 'arrest';
     this.state.pendingArrest = { sheriffId: by, targetId: target.id, startedAt: this.now, verdictAt };
-    this.emit({ type: 'ArrestStarted', targetId: target.id, verdictAt }, 'all');
+    this.emit({ type: 'ArrestStarted', targetId: target.id, verdictAt, sheriffCharacter: this.roleOf(by).character }, 'all');
+  }
+
+  /** Play was paused (arrest or hearing): push pending timers back by the pause. */
+  private resumeAfterPause(startedAt: number): void {
+    const paused = this.now - startedAt;
+    for (const d of this.state.pendingDeaths) d.at += paused;
+    for (const t of this.state.timers) t.at += paused;
   }
 
   private resolveArrest(): void {
     const s = this.state;
     const pa = s.pendingArrest!;
-    // The game was paused for the verdict: push pending timers back.
-    const paused = this.now - pa.startedAt;
-    for (const d of s.pendingDeaths) d.at += paused;
-    for (const t of s.timers) t.at += paused;
+    this.resumeAfterPause(pa.startedAt);
     s.pendingArrest = null;
 
     const target = this.player(pa.targetId);
@@ -638,6 +753,51 @@ class Engine implements RoleContext {
     }
   }
 
+  private vote(by: PlayerId, targetId: PlayerId): void {
+    this.requirePhase('hearing');
+    this.requireActive(by);
+    const target = this.requireTarget(by, targetId);
+    const h = this.state.hearing!;
+    const first = h.votes[by] === undefined;
+    h.votes[by] = target.id;
+    if (first) this.emit({ type: 'VoteCast', voterId: by }, 'all');
+    const voters = this.state.players.filter((p) => p.alive && !p.dying);
+    if (voters.every((p) => h.votes[p.id] !== undefined)) this.resolveHearing();
+  }
+
+  private resolveHearing(): void {
+    const s = this.state;
+    const h = s.hearing!;
+    this.resumeAfterPause(h.startedAt);
+    s.hearing = null;
+    s.phase = 'playing';
+
+    const tally: Record<PlayerId, number> = {};
+    for (const target of Object.values(h.votes)) tally[target] = (tally[target] ?? 0) + 1;
+    const top = Math.max(0, ...Object.values(tally));
+    const leaders = Object.keys(tally).filter((id) => tally[id] === top);
+    const eliminated = top > 0 && leaders.length === 1 ? this.player(leaders[0]!) : null;
+    const role = eliminated ? this.roleOf(eliminated.id).role : null;
+    this.emit({ type: 'HearingResult', tally, eliminatedId: eliminated?.id ?? null, role }, 'all');
+    if (!eliminated || !role) return;
+
+    eliminated.votedOut = true;
+    const def = getRole(role);
+    if (def.isSheriff) {
+      // Voting out the law: the town loses.
+      eliminated.alive = false;
+      eliminated.dying = false;
+      this.drain();
+      this.endGame('killers', 'sheriffVotedOut');
+    } else if (def.isKiller) {
+      // Like a correct arrest: removed from play (the win check runs after).
+      eliminated.alive = false;
+      eliminated.dying = false;
+    } else {
+      this.kill(eliminated.id, 'vote');
+    }
+  }
+
   private tick(): void {
     const s = this.state;
     if (s.phase === 'reveal' && s.revealDeadline !== null && this.now >= s.revealDeadline) {
@@ -646,6 +806,10 @@ class Engine implements RoleContext {
     }
     if (s.phase === 'arrest' && s.pendingArrest && this.now >= s.pendingArrest.verdictAt) {
       this.resolveArrest();
+      return;
+    }
+    if (s.phase === 'hearing' && s.hearing && this.now >= s.hearing.endsAt) {
+      this.resolveHearing();
       return;
     }
     if (s.phase !== 'playing') return;
@@ -680,8 +844,12 @@ class Engine implements RoleContext {
     s.phase = 'ended';
     s.pendingDeaths = [];
     s.pendingArrest = null;
+    s.hearing = null;
     s.timers = [];
-    for (const p of s.players) p.dying = false;
+    for (const p of s.players) {
+      p.dying = false;
+      p.lookingAt = null;
+    }
     s.result = { winner, reason, winners: [...winners], extraWinners: [...s.extraWinners], endedAt: this.now };
     this.emit({ type: 'GameEnded', result: s.result }, 'all');
   }

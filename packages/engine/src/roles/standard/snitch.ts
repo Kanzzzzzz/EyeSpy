@@ -7,16 +7,17 @@ export const snitch: RoleDefinition = {
   special: false,
   summary: 'After your 3rd eyebrow raise, name who you think the Killer is, once. Every phone shows it.',
   goal: 'Help the Sheriff find the Killers. Nobody knows who you are.',
+  canRaise: true,
   abilities: [
     {
       id: 'tip',
       label: 'Tip off the town',
-      hint: 'Every phone shows "The Snitch thinks it\'s …". Your name stays secret.',
+      hint: 'Names the player whose panel you have open. Every phone shows it; your name stays secret.',
       target: 'player',
       unlock: 'raises',
       uses: 1,
-      apply(ctx, _userId, targetId) {
-        ctx.emit({ type: 'SnitchTip', suspectId: targetId! }, 'all');
+      apply(ctx, userId, targetId) {
+        ctx.emit({ type: 'SnitchTip', suspectId: targetId!, snitchCharacter: ctx.roleOf(userId).character }, 'all');
       },
     },
   ],

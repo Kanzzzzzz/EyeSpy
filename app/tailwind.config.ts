@@ -16,6 +16,9 @@ export default {
       ink: color.ink,
       paper: color.paper,
       spot: color.spot,
+      crimson: color.crimson,
+      cyan: color.cyan,
+      violet: color.violet,
       team: color.team,
       ok: color.ok,
       warn: color.warn,
@@ -24,6 +27,7 @@ export default {
     fontFamily: {
       display: [font.display],
       body: [font.body],
+      jp: [font.jp],
     },
     fontSize,
     borderRadius: { none: '0', ...radius },

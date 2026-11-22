@@ -10,10 +10,15 @@
   }
   body {
     @apply bg-ink-900 font-body text-paper antialiased;
-    /* A warm spotlight from above, fading into the night. */
+    /* A dark manga page: a crimson glow from above, cyan from below, and screentone dots. */
     background-image:
-      radial-gradient(120% 60% at 50% -10%, rgba(255, 181, 71, 0.13), transparent 60%),
-      radial-gradient(80% 50% at 50% 110%, rgba(61, 79, 143, 0.35), transparent 70%);
+      radial-gradient(110% 55% at 50% -12%, rgba(255, 45, 85, 0.16), transparent 60%),
+      radial-gradient(90% 50% at 50% 112%, rgba(46, 230, 255, 0.12), transparent 70%),
+      radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1.4px);
+    background-size:
+      auto,
+      auto,
+      7px 7px;
     background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
@@ -25,19 +30,46 @@
     user-select: text;
   }
   :focus-visible {
-    outline: 3px solid theme('colors.spot.DEFAULT');
+    outline: 3px solid theme('colors.cyan.DEFAULT');
     outline-offset: 2px;
   }
 }
 
-/* Film grain: a tiny inline SVG noise tile, kept very faint. */
+@layer utilities {
+  /* Thick black outline behind display lettering (anime title cards). */
+  .title-outline {
+    -webkit-text-stroke: 7px #000;
+    paint-order: stroke fill;
+  }
+  /* Radial speed lines, faded in the middle. */
+  .speedlines {
+    background: repeating-conic-gradient(from 0deg at 50% 45%, rgba(255, 255, 255, 0.07) 0deg 1.2deg, transparent 1.2deg 7deg);
+    -webkit-mask-image: radial-gradient(circle at 50% 45%, transparent 22%, #000 70%);
+    mask-image: radial-gradient(circle at 50% 45%, transparent 22%, #000 70%);
+  }
+  .speedlines-strong {
+    background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.16) 0deg 1.6deg, transparent 1.6deg 6deg);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 18%, #000 62%);
+    mask-image: radial-gradient(circle at 50% 50%, transparent 18%, #000 62%);
+  }
+  .screentone {
+    background-image: radial-gradient(rgba(0, 0, 0, 0.35) 1.1px, transparent 1.5px);
+    background-size: 6px 6px;
+  }
+  .vertical-jp {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+  }
+}
+
+/* Film grain: a tiny inline SVG noise tile, kept faint. */
 .grain::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 60;
-  opacity: 0.06;
+  opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 

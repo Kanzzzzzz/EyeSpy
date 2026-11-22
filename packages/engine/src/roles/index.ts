@@ -6,6 +6,7 @@ import { shush } from './standard/shush';
 import { snitch } from './standard/snitch';
 import { lover } from './standard/lover';
 import { citizen } from './standard/citizen';
+import { judge } from './standard/judge';
 import { dramaQueen } from './special/dramaQueen';
 import { bodyguard } from './special/bodyguard';
 import { paparazzi } from './special/paparazzi';
@@ -20,6 +21,7 @@ export const ROLES: Record<RoleId, RoleDefinition> = {
   sheriff,
   shush,
   snitch,
+  judge,
   lover,
   citizen,
   dramaQueen,

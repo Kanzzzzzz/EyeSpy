@@ -163,6 +163,9 @@ describe('reconnects', () => {
     expect(watcher.snapshot.status).toBe('reconnecting');
     expect(room.presence()[watcherId!]).toBe('reconnecting');
 
+    // Eye contact first: they look into each other's eyes.
+    await killer.send({ type: 'look', targetId: victim.snapshot.playerId! });
+    await victim.send({ type: 'look', targetId: killerId });
     const wr = await killer.send({ type: 'wink', targetId: victim.snapshot.playerId! });
     expect(wr).toEqual({ ok: true });
     await flush(3_300);
@@ -215,7 +218,10 @@ describe('host crash recovery', () => {
     const roles = room.state.roles;
     const killerId = Object.keys(roles).find((id) => roles[id]!.role === 'killer')!;
     const victimId = Object.keys(roles).find((id) => roles[id]!.role === 'citizen')!;
-    await clients.find((c) => c.snapshot.playerId === killerId)!.send({ type: 'wink', targetId: victimId });
+    const killerClient = clients.find((c) => c.snapshot.playerId === killerId)!;
+    await killerClient.send({ type: 'look', targetId: victimId });
+    await clients.find((c) => c.snapshot.playerId === victimId)!.send({ type: 'look', targetId: killerId });
+    await killerClient.send({ type: 'wink', targetId: victimId });
     await flush(1_000);
 
     // The host app crashes: every socket dies and nothing answers for 20 s.

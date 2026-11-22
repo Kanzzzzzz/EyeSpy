@@ -1,103 +1,120 @@
 import { audioContext } from './sounds';
 
 /**
- * The tension loop: a quiet noir walking bass, brushed hats and the odd
- * vibraphone note, composed in code and synthesised live with Web Audio.
- * Original to EyeSpy; nothing is loaded from disk.
+ * The tension loop: taiko drums, a koto-style pluck in the Japanese "in"
+ * scale, and a low drone, composed in code and synthesised live with Web
+ * Audio. Original to EyeSpy; nothing is loaded from disk.
  */
 
-const BPM = 88;
-const BEAT = 60 / BPM;
-// A minor-ish walk over 4 bars (MIDI notes), with a chromatic approach.
-const BASS = [45, 48, 52, 51, 50, 53, 57, 56, 45, 47, 48, 50, 52, 50, 48, 44];
-const VIBES: (number | null)[] = [
-  69, null, null, 72, null, null, 76, null, 75, null, null, null, 74, null, 72, null,
-];
+const BPM = 96;
+const STEP = 60 / BPM / 2; // eighth notes
+// Taiko: big hits (2), small hits (1), rests (0), 16 steps.
+const TAIKO = [2, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 1, 0, 2, 1, 0];
+// Pluck melody (MIDI), "in" scale on D: D Eb G A Bb.
+const KOTO: (number | null)[] = [74, null, 70, null, 69, null, null, 67, null, 63, null, 62, null, null, 63, null];
+const KOTO_B: (number | null)[] = [null, null, 74, null, 75, null, 74, null, 70, null, 69, null, null, null, null, null];
 
 const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
 
-let master: GainNode | null = null;
+let bus: GainNode | null = null;
+let drone: OscillatorNode[] = [];
 let timer: ReturnType<typeof setInterval> | null = null;
 let step = 0;
 let nextTime = 0;
-let noise: AudioBuffer | null = null;
 
-function noiseBuffer(c: AudioContext) {
-  if (noise) return noise;
-  noise = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate);
-  const d = noise.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  return noise;
-}
-
-function bass(c: AudioContext, out: AudioNode, t: number, note: number) {
+function taiko(c: AudioContext, out: AudioNode, t: number, big: boolean) {
   const osc = c.createOscillator();
   const g = c.createGain();
-  const lp = c.createBiquadFilter();
-  osc.type = 'triangle';
-  osc.frequency.value = midi(note);
-  lp.type = 'lowpass';
-  lp.frequency.value = 600;
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(big ? 110 : 160, t);
+  osc.frequency.exponentialRampToValueAtTime(big ? 45 : 70, t + 0.25);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + BEAT * 0.9);
-  osc.connect(lp).connect(g).connect(out);
+  g.gain.exponentialRampToValueAtTime(big ? 0.8 : 0.35, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? 0.5 : 0.25));
+  osc.connect(g).connect(out);
   osc.start(t);
-  osc.stop(t + BEAT);
+  osc.stop(t + 0.6);
 }
 
-function hat(c: AudioContext, out: AudioNode, t: number, accent: boolean) {
+function shaker(c: AudioContext, out: AudioNode, t: number, accent: boolean) {
+  const len = 0.06;
+  const buf = c.createBuffer(1, Math.ceil(c.sampleRate * len), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
   const src = c.createBufferSource();
-  src.buffer = noiseBuffer(c);
+  src.buffer = buf;
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = 6000;
+  hp.frequency.value = 7000;
   const g = c.createGain();
-  g.gain.setValueAtTime(accent ? 0.08 : 0.04, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + (accent ? 0.18 : 0.08));
+  g.gain.value = accent ? 0.06 : 0.03;
   src.connect(hp).connect(g).connect(out);
   src.start(t);
-  src.stop(t + 0.2);
 }
 
-function vibe(c: AudioContext, out: AudioNode, t: number, note: number) {
+function koto(c: AudioContext, out: AudioNode, t: number, note: number) {
   for (const [mult, level] of [
-    [1, 0.18],
-    [4, 0.04],
+    [1, 0.16],
+    [2, 0.05],
+    [3, 0.025],
   ] as const) {
     const osc = c.createOscillator();
     const g = c.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = midi(note) * mult;
+    osc.type = 'triangle';
+    const f = midi(note) * mult;
+    osc.frequency.setValueAtTime(f * 1.02, t);
+    osc.frequency.exponentialRampToValueAtTime(f, t + 0.04);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(level, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    g.gain.exponentialRampToValueAtTime(level, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
     osc.connect(g).connect(out);
     osc.start(t);
-    osc.stop(t + 1.7);
+    osc.stop(t + 1.3);
   }
 }
 
 export function startMusic(volume = 0.35) {
   const c = audioContext();
   if (!c || timer) return;
-  master = c.createGain();
-  master.gain.value = 0;
-  master.gain.linearRampToValueAtTime(volume, c.currentTime + 2);
-  master.connect(c.destination);
+  bus = c.createGain();
+  bus.gain.value = 0;
+  bus.gain.linearRampToValueAtTime(volume, c.currentTime + 2);
+  bus.connect(c.destination);
+
+  // Drone: a low D and its fifth, slowly breathing.
+  const droneGain = c.createGain();
+  droneGain.gain.value = 0.06;
+  const lfo = c.createOscillator();
+  const lfoGain = c.createGain();
+  lfo.frequency.value = 0.15;
+  lfoGain.gain.value = 0.03;
+  lfo.connect(lfoGain).connect(droneGain.gain);
+  drone = [38, 45].map((n) => {
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = midi(n);
+    o.connect(droneGain);
+    o.start();
+    return o;
+  });
+  lfo.start();
+  drone.push(lfo);
+  droneGain.connect(bus);
+
   step = 0;
   nextTime = c.currentTime + 0.1;
-  // Schedule a little ahead on a coarse timer (the usual Web Audio pattern).
   timer = setInterval(() => {
-    if (!master) return;
+    if (!bus) return;
     while (nextTime < c.currentTime + 0.3) {
-      const i = step % BASS.length;
-      bass(c, master, nextTime, BASS[i]!);
-      hat(c, master, nextTime, i % 2 === 1);
-      hat(c, master, nextTime + BEAT * 0.66, false);
-      const v = VIBES[i];
-      if (v !== null && v !== undefined && step % 32 < 16) vibe(c, master, nextTime, v);
-      nextTime += BEAT;
+      const i = step % 16;
+      const bar = Math.floor(step / 16) % 4;
+      const hit = TAIKO[i]!;
+      if (hit) taiko(c, bus, nextTime, hit === 2);
+      shaker(c, bus, nextTime, i % 4 === 2);
+      const melody = bar === 3 ? KOTO_B : KOTO;
+      const note = melody[i];
+      if (note !== null && note !== undefined && bar !== 0) koto(c, bus, nextTime, note);
+      nextTime += STEP;
       step++;
     }
   }, 60);
@@ -107,12 +124,23 @@ export function stopMusic() {
   const c = audioContext();
   if (timer) clearInterval(timer);
   timer = null;
-  if (c && master) {
-    const m = master;
-    m.gain.cancelScheduledValues(c.currentTime);
-    m.gain.setValueAtTime(m.gain.value, c.currentTime);
-    m.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
-    setTimeout(() => m.disconnect(), 1000);
+  if (c && bus) {
+    const b = bus;
+    const ds = drone;
+    b.gain.cancelScheduledValues(c.currentTime);
+    b.gain.setValueAtTime(b.gain.value, c.currentTime);
+    b.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
+    setTimeout(() => {
+      ds.forEach((o) => {
+        try {
+          o.stop();
+        } catch {
+          /* already stopped */
+        }
+      });
+      b.disconnect();
+    }, 1000);
   }
-  master = null;
+  bus = null;
+  drone = [];
 }

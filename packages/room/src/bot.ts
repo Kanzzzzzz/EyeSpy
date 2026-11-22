@@ -15,11 +15,17 @@ export interface BotOptions {
   winkChance?: number;
   raiseChance?: number;
   arrestChance?: number;
+  /** Chance per think of looking at someone else. */
+  glanceChance?: number;
 }
 
 /**
  * A simple automated player. Used by the simulated-game tests, the dev host's
- * --bots flag, and the in-app "add bots" button in development builds.
+ * --bots flag, and the in-app "practice bots" button.
+ *
+ * It plays by the eye rules: it glances between panels, only winks or raises
+ * with eye contact, prefers to wink when nobody else is watching, and
+ * suspects anyone it saw wink.
  */
 export class Bot {
   readonly client: GameClient;
@@ -40,8 +46,9 @@ export class Bot {
       startAt: Infinity,
       playAgain: false,
       winkChance: 0.35,
-      raiseChance: 0.15,
+      raiseChance: 0.3,
       arrestChance: 0.01,
+      glanceChance: 0.3,
       ...opts,
     };
   }
@@ -50,6 +57,16 @@ export class Bot {
     this.unsubscribe = this.client.subscribe((_snap, fresh) => this.observe(fresh));
     this.client.start();
     this.timer = setInterval(() => void this.think(), this.opts.thinkMs);
+  }
+
+  /** Stop making moves but stay connected (used to stage screenshots). */
+  pause(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  resume(): void {
+    if (!this.timer) this.timer = setInterval(() => void this.think(), this.opts.thinkMs);
   }
 
   stop(): void {
@@ -61,8 +78,12 @@ export class Bot {
 
   private observe(fresh: LoggedEvent[]): void {
     for (const e of fresh) {
-      if (e.event.type === 'SheriffWinked') this.suspect = e.event.killerId;
-      if (e.event.type === 'LobbyReset' || e.event.type === 'RolesAssigned') this.suspect = null;
+      const ev = e.event;
+      if (ev.type === 'SheriffWinked') this.suspect = ev.killerId;
+      // A wink seen with your own eyes is the strongest clue there is.
+      if (ev.type === 'SawWink') this.suspect = ev.winkerId;
+      if (ev.type === 'SnitchTip' && !this.suspect) this.suspect = ev.suspectId;
+      if (ev.type === 'LobbyReset' || ev.type === 'RolesAssigned') this.suspect = null;
     }
   }
 
@@ -105,52 +126,75 @@ export class Bot {
         await this.client.send({ type: 'ready' });
         return;
       }
-      if (view.phase !== 'playing' || !me) return;
-
-      if (!me.alive) {
-        const ghost = me.abilities.find((a) => a.ghost && a.usesLeft !== 0);
-        if (ghost?.payload && this.chance(0.2)) {
+      if (!me || !me.alive) {
+        // Ghosts may message the Medium.
+        const ghost = me?.abilities.find((a) => a.ghost && a.usesLeft !== 0);
+        if (view.phase === 'playing' && ghost?.payload && this.chance(0.2)) {
           await this.client.send({ type: 'useAbility', abilityId: ghost.id, payload: this.pick(ghost.payload.options)! });
         }
         return;
       }
 
       const others = view.players.filter((p) => p.alive && p.id !== playerId);
-      const winkable = others.filter((p) => !me.knows.includes(p.id));
 
+      if (view.phase === 'hearing' && view.hearing && !view.hearing.myVote) {
+        const target = (this.suspect && others.find((p) => p.id === this.suspect)) || this.pick(others);
+        if (target && this.chance(0.5)) await this.client.send({ type: 'vote', targetId: target.id });
+        return;
+      }
+      if (view.phase !== 'playing') return;
+
+      const looking = me.lookingAt ? others.find((p) => p.id === me.lookingAt) : undefined;
+
+      // The Sheriff goes after a suspect: look at them, then arrest.
       if (me.canArrest && me.shushedKillsLeft === 0) {
-        const suspect = this.suspect && others.find((p) => p.id === this.suspect);
+        const suspect = this.suspect ? others.find((p) => p.id === this.suspect) : undefined;
         if (suspect) {
-          await this.client.send({ type: 'arrest', targetId: suspect.id });
+          if (me.lookingAt !== suspect.id) await this.client.send({ type: 'look', targetId: suspect.id });
+          else await this.client.send({ type: 'arrest', targetId: suspect.id });
           return;
         }
-        if (this.chance(this.opts.arrestChance)) {
-          await this.client.send({ type: 'arrest', targetId: this.pick(others)!.id });
-          return;
-        }
-      }
-      if (me.canWink && (me.winkReadyAt === null || me.winkReadyAt <= now) && this.chance(this.opts.winkChance)) {
-        const target = this.pick(winkable);
-        if (target) {
-          await this.client.send({ type: 'wink', targetId: target.id });
+        if (looking && this.chance(this.opts.arrestChance)) {
+          await this.client.send({ type: 'arrest', targetId: looking.id });
           return;
         }
       }
+
+      if (looking && me.eyeContact) {
+        // Fewer watchers means a safer wink: the target is always one of them.
+        const safe = me.watchers <= 1;
+        if (
+          me.canWink &&
+          !me.knows.includes(looking.id) &&
+          (me.winkReadyAt === null || me.winkReadyAt <= now) &&
+          this.chance(this.opts.winkChance * (safe ? 1 : 0.25))
+        ) {
+          await this.client.send({ type: 'wink', targetId: looking.id });
+          return;
+        }
+        if (me.canRaise && (me.raiseReadyAt === null || me.raiseReadyAt <= now) && this.chance(this.opts.raiseChance)) {
+          await this.client.send({ type: 'raiseEyebrow', targetId: looking.id });
+          return;
+        }
+      }
+
       for (const a of me.abilities) {
         if (!a.unlocked || a.usesLeft === 0 || (a.readyAt !== null && a.readyAt > now)) continue;
+        if (a.target === 'player' && (!looking || (a.gesture && !me.eyeContact))) continue;
         if (!this.chance(0.3)) continue;
-        const targetId = a.target === 'player' ? this.pick(others)?.id ?? null : null;
         await this.client.send({
           type: 'useAbility',
           abilityId: a.id,
-          targetId,
+          targetId: a.target === 'player' ? looking!.id : null,
           payload: a.payload ? this.pick(a.payload.options)! : null,
         });
         return;
       }
-      if ((me.raiseReadyAt === null || me.raiseReadyAt <= now) && this.chance(this.opts.raiseChance)) {
-        const target = this.pick(others);
-        if (target) await this.client.send({ type: 'raiseEyebrow', targetId: target.id });
+
+      // Glance around. Holding a gaze a while gives eye contact a chance to happen.
+      if (!looking || this.chance(this.opts.glanceChance)) {
+        const next = this.pick(others.filter((p) => p.id !== me.lookingAt)) ?? this.pick(others);
+        if (next) await this.client.send({ type: 'look', targetId: next.id });
       }
     } finally {
       this.busy = false;

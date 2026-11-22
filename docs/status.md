@@ -54,3 +54,28 @@ or easy to change in `packages/engine/src/state.ts`.
 - A few Android models block traffic between hotspot guests; the plan's
   5-model test (task 2.5) is the way to find them.
 - Camera winks/eyebrows (the stretch idea) are not started.
+
+## Version 2: eyes, anime and the Judge (Nov 2026)
+
+| Change | Status |
+| --- | --- |
+| Manga-panel look mode: one panel open at a time | Done (engine `look` action, Play screen) |
+| Real eye contact for winks and raises; witnesses see winks and raises; "eyes on you" counter | Done, tested (`packages/engine/test/eyes.test.ts`) |
+| Only the Shush, Snitch and Judge can raise | Done, tested |
+| Judge role (7+ players): one hearing, 20 s secret vote, ties free everyone, Sheriff voted out loses, last Killer voted out wins | Done, tested (`judge.test.ts`); hearing screen in the app |
+| 42 original secret role characters (3 per role, 14 roles) + 12 public characters, drawn in code | Done (`app/src/art`); picked privately on the reveal screen |
+| Killer finishers: realm (domain-style), slash, shadow; arrest chains; hearing gavel | Done |
+| Anime UI: tokens, Anton display type, sakuga effects layer (impact, slash, smoke, splash, sparkle, speed lines, manga lettering, shake, flash), springy controls | Done; switches off with reduced motion |
+| Anime sound design and taiko/koto tension loop, synthesised live | Done |
+| Protocol bumped to v2 (old apps get "Update EyeSpy") | Done |
+| Host bandwidth: phones whose view didn't change get nothing; looks are rate-limited and not written to disk | Done |
+| Bots play by the eye rules (glance, wait for contact, prefer unwatched winks, vote) | Done; 10 bots still finish a game over real sockets |
+
+**Why the characters are original:** the app stores reject games that use
+another studio's characters (for example Sukuna), so the cast is original,
+written in the same spirit: a cursed demon-king Killer with a domain-style
+finisher, a silent blade, a puppet queen, and so on for every role.
+
+**Still needs real phones:** eye contact over the hotspot feels instant in the
+browser; it should be checked on 6+ phones (task 2.5), along with the effects'
+frame rate on a mid-range Android phone.

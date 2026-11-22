@@ -1,8 +1,9 @@
 import { App as CapApp } from '@capacitor/app';
 import { AnimatePresence, MotionConfig } from 'motion/react';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isNative } from './platform/device';
 import { useGame } from './state/store';
+import { FxLayer } from './fx/FxLayer';
 import { Home } from './screens/Home';
 import { HowToPlay } from './screens/HowToPlay';
 import { Join } from './screens/Join';
@@ -11,6 +12,18 @@ import { Permissions } from './screens/Permissions';
 import { Game } from './screens/Game';
 import { startMusic, stopMusic } from './audio/music';
 
+function useSystemReducedMotion(): boolean {
+  const [reduce, setReduce] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    if (typeof matchMedia === 'undefined') return;
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const on = () => setReduce(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return reduce;
+}
+
 export function App() {
   const ready = useGame((s) => s.ready);
   const screen = useGame((s) => s.screen);
@@ -18,6 +31,9 @@ export function App() {
   const music = useGame((s) => s.prefs.music);
   const phase = useGame((s) => s.snap?.view?.phase);
   const alive = useGame((s) => s.snap?.view?.me?.alive);
+  const systemReduce = useSystemReducedMotion();
+  const content = useRef<HTMLDivElement>(null);
+  const effectsOn = reducedMotion === 'off' || (reducedMotion === 'system' && !systemReduce);
 
   useEffect(() => {
     void useGame.getState().init();
@@ -25,7 +41,7 @@ export function App() {
 
   // Tension music only while a round is being played.
   useEffect(() => {
-    if (music && (phase === 'playing' || phase === 'arrest')) startMusic(alive === false ? 0.18 : 0.32);
+    if (music && (phase === 'playing' || phase === 'arrest' || phase === 'hearing')) startMusic(alive === false ? 0.18 : 0.32);
     else stopMusic();
     return () => stopMusic();
   }, [music, phase, alive]);
@@ -43,7 +59,6 @@ export function App() {
     if (isNative) {
       void CapApp.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) return;
-        // Coming back: the client reconnects by itself; nudge audio back on.
         void useGame.getState().go('game');
       }).then((h) => (handle = h));
     }
@@ -53,20 +68,21 @@ export function App() {
     };
   }, [phase]);
 
-  if (!ready) return <div className="min-h-[100dvh] bg-ink-900" />;
-
   return (
     <MotionConfig reducedMotion={reducedMotion === 'on' ? 'always' : reducedMotion === 'off' ? 'never' : 'user'}>
-      <div className="grain min-h-[100dvh]">
-        <AnimatePresence mode="wait">
-          {screen === 'home' && <Home key="home" />}
-          {screen === 'how' && <HowToPlay key="how" />}
-          {screen === 'join' && <Join key="join" />}
-          {screen === 'settings' && <Settings key="settings" />}
-          {screen === 'permissions' && <Permissions key="permissions" />}
-          {screen === 'game' && <Game key="game" />}
-        </AnimatePresence>
+      <div ref={content} className="grain min-h-[100dvh]">
+        {ready && (
+          <AnimatePresence mode="wait">
+            {screen === 'home' && <Home key="home" />}
+            {screen === 'how' && <HowToPlay key="how" />}
+            {screen === 'join' && <Join key="join" />}
+            {screen === 'settings' && <Settings key="settings" />}
+            {screen === 'permissions' && <Permissions key="permissions" />}
+            {screen === 'game' && <Game key="game" />}
+          </AnimatePresence>
+        )}
       </div>
+      <FxLayer enabled={effectsOn} shakeTarget={content} />
     </MotionConfig>
   );
 }

@@ -13,6 +13,7 @@ export const decoy: RoleDefinition = {
       label: 'Fake wink',
       hint: 'Their phone counts down like a real wink, then says it was just a twitch.',
       target: 'player',
+      gesture: 'wink',
       uses: null,
       cooldownMs: 'wink',
       apply(ctx, userId, targetId) {
@@ -21,8 +22,11 @@ export const decoy: RoleDefinition = {
         ctx.roleOf(userId).winksSent += 1;
         const deadline = ctx.now + settings.deathDelayMs;
         ctx.emit({ type: 'WinkSent', killerId: userId, targetId: target, fake: true }, [userId]);
+        // Borrow a real Killer's character so the target can't tell it's fake.
+        const killer = ctx.alive().find((p) => ctx.roleOf(p.id).role === 'killer');
+        const killerCharacter = killer ? ctx.roleOf(killer.id).character : null;
         ctx.emit(
-          { type: 'Winked', targetId: target, killerId: settings.victimsSeeKiller ? userId : null, deadline },
+          { type: 'Winked', targetId: target, killerId: settings.victimsSeeKiller ? userId : null, deadline, killerCharacter },
           [target],
         );
         ctx.schedule(userId, deadline, 'phew', { targetId: target });

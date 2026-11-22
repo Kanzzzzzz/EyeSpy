@@ -25,8 +25,9 @@ export function Lobby() {
       <TopBar
         onBack={() => void leaveGame()}
         title={isHost ? 'Your game' : 'Lobby'}
+        jp={isHost ? 'ホスト' : 'ロビー'}
         right={
-          <span className="rounded-md border border-ink-500 px-3 py-1 font-display text-xl tracking-[0.2em] text-spot" aria-label={`Room code ${room}`}>
+          <span className="border-[3px] border-black bg-spot px-3 py-1 font-display text-2xl tracking-[0.2em] text-ink-950" style={{ boxShadow: '3px 3px 0 0 #000' }} aria-label={`Room code ${room}`}>
             {room}
           </span>
         }
@@ -89,12 +90,12 @@ export function Lobby() {
         {isHost ? (
           <>
             {!view.mix.ok && <p className="mb-2 text-center text-sm text-warn">{view.mix.problem}</p>}
-            <Button size="lg" className="w-full" disabled={!view.mix.ok} onClick={() => void send({ type: 'start' })}>
+            <Button size="lg" className="w-full" disabled={!view.mix.ok} onClick={() => void send({ type: 'start' })} sfx="開始">
               Deal the roles
             </Button>
           </>
         ) : (
-          <p className="flex min-h-[60px] items-center justify-center text-center text-paper-dim">Waiting for the host to start…</p>
+          <p className="flex min-h-[64px] items-center justify-center text-center font-display text-xl uppercase text-paper-dim">Waiting for the host to start…</p>
         )}
       </div>
     </Screen>
@@ -219,6 +220,7 @@ function HostSettings() {
         {role('sheriff', 'Sheriffs', 3)}
         {role('shush', 'Shush', 1)}
         {role('snitch', 'Snitch', 1)}
+        {role('judge', 'Judge', 1)}
         {role('loverPairs', 'Lover pairs', 2)}
         <p className="mt-1 text-right text-sm text-paper-faint">Citizens: {Math.max(0, view.mix.citizens)}</p>
       </Card>
@@ -256,6 +258,7 @@ function RoleSummary() {
     ['Sheriffs', r.sheriff],
     ['Shush', r.shush],
     ['Snitch', r.snitch],
+    ['Judge', r.judge],
     ['Lovers', r.loverPairs * 2],
     ['Citizens', Math.max(0, view.mix.citizens)],
   ];

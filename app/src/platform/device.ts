@@ -48,6 +48,9 @@ export const HAPTICS = {
   buzz: [18],
   win: [60, 40, 60, 40, 180],
   error: [25, 40, 25],
+  witness: [20, 30, 20, 30, 120],
+  eyeContact: [10],
+  hearing: [120, 80, 120, 80, 120],
 } satisfies Record<string, HapticPattern>;
 
 let hapticsOn = true;

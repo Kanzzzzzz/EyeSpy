@@ -9,7 +9,7 @@ import {
 } from './types';
 
 export const DEFAULT_SETTINGS: Settings = {
-  roles: { killer: 1, sheriff: 1, shush: 1, snitch: 1, loverPairs: 0 },
+  roles: { killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 0, loverPairs: 0 },
   autoRoles: true,
   special: Object.fromEntries(SPECIAL_ROLE_IDS.map((id) => [id, false])) as Record<SpecialRoleId, boolean>,
   deathDelayMs: 3000,
@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   victimsSeeKiller: true,
   revealTimeoutMs: 30000,
   arrestVerdictMs: 4500,
+  hearingMs: 20000,
   raisesToUnlock: 3,
   shushLockKills: 2,
 };
@@ -29,16 +30,17 @@ export const SETTING_LIMITS = {
   raiseCooldownMs: [0, 60000],
   revealTimeoutMs: [5000, 120000],
   arrestVerdictMs: [1500, 15000],
+  hearingMs: [10000, 60000],
   raisesToUnlock: [1, 10],
   shushLockKills: [1, 5],
 } as const;
 
-/** The suggested role mix for a player count, from the design doc. */
+/** The suggested role mix for a player count, from the design doc. The Judge joins at 7+. */
 export function suggestRoles(players: number): RoleCounts {
-  if (players <= 6) return { killer: 1, sheriff: 1, shush: 1, snitch: 1, loverPairs: 0 };
-  if (players <= 9) return { killer: 1, sheriff: 1, shush: 1, snitch: 1, loverPairs: 1 };
-  if (players <= 14) return { killer: 2, sheriff: 2, shush: 1, snitch: 1, loverPairs: 1 };
-  return { killer: 3, sheriff: 3, shush: 1, snitch: 1, loverPairs: 1 };
+  if (players <= 6) return { killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 0, loverPairs: 0 };
+  if (players <= 9) return { killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 1, loverPairs: 1 };
+  if (players <= 14) return { killer: 2, sheriff: 2, shush: 1, snitch: 1, judge: 1, loverPairs: 1 };
+  return { killer: 3, sheriff: 3, shush: 1, snitch: 1, judge: 1, loverPairs: 1 };
 }
 
 export function enabledSpecialRoles(settings: Settings): SpecialRoleId[] {
@@ -55,7 +57,7 @@ export interface MixCheck {
 export function checkRoleMix(settings: Settings, players: number): MixCheck {
   const r = settings.roles;
   const special = enabledSpecialRoles(settings).length;
-  const dealt = r.killer + r.sheriff + r.shush + r.snitch + r.loverPairs * 2 + special;
+  const dealt = r.killer + r.sheriff + r.shush + r.snitch + r.judge + r.loverPairs * 2 + special;
   const citizens = players - dealt;
   if (players < MIN_PLAYERS) return { ok: false, citizens, problem: `Needs at least ${MIN_PLAYERS} players.` };
   if (players > MAX_PLAYERS) return { ok: false, citizens, problem: `At most ${MAX_PLAYERS} players.` };
@@ -70,7 +72,7 @@ export function checkRoleMix(settings: Settings, players: number): MixCheck {
 
 export function createGame(seed: number, now = 0): GameState {
   return {
-    version: 1,
+    version: 2,
     phase: 'lobby',
     round: 0,
     hostId: null,
@@ -80,6 +82,7 @@ export function createGame(seed: number, now = 0): GameState {
     rng: seed >>> 0 || 1,
     pendingDeaths: [],
     pendingArrest: null,
+    hearing: null,
     revealDeadline: null,
     shushLockKillsRemaining: 0,
     timers: [],
@@ -117,6 +120,10 @@ export function shiftTime(state: GameState, ms: number, now: number): GameState 
     if (s.pendingArrest) {
       s.pendingArrest.startedAt += ms;
       s.pendingArrest.verdictAt += ms;
+    }
+    if (s.hearing) {
+      s.hearing.startedAt += ms;
+      s.hearing.endsAt += ms;
     }
     for (const rs of Object.values(s.roles)) {
       if (rs.lastWinkAt !== null) rs.lastWinkAt += ms;

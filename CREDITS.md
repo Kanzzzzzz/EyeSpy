@@ -1,8 +1,11 @@
 # Credits
 
 All art, sounds and music in EyeSpy are original and made in code: the logo,
-the 12 avatars, role badges, sound effects (ZzFX parameters) and the tension
-loop (Web Audio). This file lists borrowed code, fonts and libraries.
+the anime character kit (12 public characters and 42 secret role characters),
+role badges, finisher animations, sound effects (ZzFX and Web Audio) and the
+tension loop. The characters are original; none are taken from existing anime.
+Japanese lettering uses the phone's built-in CJK font. This file lists
+borrowed code, fonts and libraries.
 
 ## Code copied or ported into this repo
 
@@ -15,7 +18,7 @@ loop (Web Audio). This file lists borrowed code, fonts and libraries.
 
 | Font | Package | Licence |
 | --- | --- | --- |
-| Fraunces | `@fontsource-variable/fraunces` ([Google Fonts](https://fonts.google.com/specimen/Fraunces)) | SIL Open Font License 1.1 |
+| Anton | `@fontsource/anton` ([Google Fonts](https://fonts.google.com/specimen/Anton)) | SIL Open Font License 1.1 |
 | Outfit | `@fontsource-variable/outfit` ([Google Fonts](https://fonts.google.com/specimen/Outfit)) | SIL Open Font License 1.1 |
 
 ## Libraries shipped in the app
@@ -39,3 +42,11 @@ loop (Web Audio). This file lists borrowed code, fonts and libraries.
 The design doc lists Lucide, Phosphor, Kenney, DiceBear, LottieFiles, Freesound,
 Sonniss, Pixabay Music, Incompetech, Howler.js and Tone.js as possible sources.
 None of them ended up being needed; add a row above if one is introduced.
+
+## Visual reference
+
+The UI's motion style (springy controls with drawn impact bursts, slashes,
+smoke and manga sound-effect lettering) takes inspiration from the
+[Sakuga VFX gallery](https://sakuga-vfx.vercel.app/gallery/). No code or
+assets were copied; EyeSpy's effects layer (`app/src/fx`) is written from
+scratch.

@@ -90,6 +90,15 @@ function Glyph({ role }: { role: RoleId }) {
       );
     case 'lover':
       return <path d="M50 78 C 20 58, 18 30, 36 28 C 44 27, 49 33, 50 38 C 51 33, 56 27, 64 28 C 82 30, 80 58, 50 78 Z" fill={color.team.killers} {...s} />;
+    case 'judge':
+      return (
+        <g {...s}>
+          <path d="M50 22 L50 70 M30 34 L70 34" fill="none" strokeWidth="5" />
+          <path d="M22 54 L30 34 L38 54 Z M62 54 L70 34 L78 54 Z" fill={color.spot.DEFAULT} />
+          <path d="M18 54 Q30 66 42 54 Z M58 54 Q70 66 82 54 Z" fill={color.spot.soft} />
+          <rect x="36" y="70" width="28" height="8" rx="2" fill={PAPER} />
+        </g>
+      );
     case 'citizen':
       return (
         <g {...s}>

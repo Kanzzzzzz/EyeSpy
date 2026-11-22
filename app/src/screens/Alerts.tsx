@@ -1,37 +1,40 @@
+import { character, getRole } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useEffect, useRef } from 'react';
-import { Avatar } from '../art/Avatar';
+import { useEffect, useRef, useState } from 'react';
+import { AnimeFace } from '../art/AnimeFace';
+import { publicLook, roleLook } from '../art/characters';
+import { FinisherScene } from '../art/Finishers';
 import { RoleBadge } from '../art/RoleBadge';
-import { getRole } from '@eyespy/engine';
 import { play } from '../audio/sounds';
 import { color, motion as m } from '../design/tokens';
+import { fx } from '../fx/fx';
 import { HAPTICS, vibrate } from '../platform/device';
 import type { Alert } from '../state/alerts';
 import { useGame } from '../state/store';
 import { useCountdown } from '../ui/kit';
 
 const TONE: Record<Alert['tone'], string> = {
-  neutral: color.ink[300],
-  danger: color.team.killers,
+  neutral: color.paper.DEFAULT,
+  danger: color.crimson.DEFAULT,
   good: color.ok,
   spot: color.spot.DEFAULT,
 };
 
 /** Removes an alert after its time-to-live. */
-function useAutoDismiss(alert: Alert, extraMs = 0) {
+function useAutoDismiss(alert: Alert, extraMs = 0, enabled = true) {
   const dismiss = useGame((s) => s.dismiss);
   useEffect(() => {
-    if (!alert.ttl) return;
+    if (!alert.ttl || !enabled) return;
     const t = setTimeout(() => dismiss(alert.id), alert.ttl + extraMs);
     return () => clearTimeout(t);
-  }, [alert.id, alert.ttl, extraMs, dismiss]);
+  }, [alert.id, alert.ttl, extraMs, dismiss, enabled]);
 }
 
 export function Alerts() {
   const alerts = useGame((s) => s.alerts);
   const toasts = alerts.filter((a) => a.style === 'toast').slice(-3);
   // Big moments show one at a time, oldest first.
-  const big = alerts.find((a) => a.style === 'modal' || a.style === 'spotlight' || a.style === 'countdown');
+  const big = alerts.find((a) => ['modal', 'spotlight', 'countdown', 'finisher'].includes(a.style));
   const pulse = alerts.find((a) => a.style === 'pulse');
 
   return (
@@ -47,10 +50,17 @@ export function Alerts() {
         {big?.style === 'countdown' && <Countdown key={big.id} alert={big} />}
         {big?.style === 'modal' && <Modal key={big.id} alert={big} />}
         {big?.style === 'spotlight' && <Spotlight key={big.id} alert={big} />}
+        {big?.style === 'finisher' && <FinisherAlert key={big.id} alert={big} />}
       </AnimatePresence>
       <AnimatePresence>{pulse && <Pulse key={pulse.id} alert={pulse} />}</AnimatePresence>
     </>
   );
+}
+
+function Portrait({ alert, size, expression = 'neutral' }: { alert: Alert; size: number; expression?: 'neutral' | 'shock' | 'sly' | 'dead' | 'wink' | 'raise' }) {
+  if (alert.character) return <AnimeFace look={roleLook(alert.character)} size={size} crop="face" expression={expression} />;
+  if (alert.avatar !== undefined) return <AnimeFace look={publicLook(alert.avatar)} size={size} crop="face" expression={expression} />;
+  return null;
 }
 
 function Toast({ alert }: { alert: Alert }) {
@@ -60,25 +70,29 @@ function Toast({ alert }: { alert: Alert }) {
     <motion.button
       type="button"
       layout
-      initial={{ opacity: 0, y: -20, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={m.spring}
+      initial={{ opacity: 0, x: 60, skewX: -8 }}
+      animate={{ opacity: 1, x: 0, skewX: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={m.bouncy}
       onClick={() => dismiss(alert.id)}
-      className="pointer-events-auto flex min-h-[56px] items-center gap-3 rounded-lg border bg-ink-850/95 px-3 py-2 text-left shadow-lift backdrop-blur"
-      style={{ borderColor: TONE[alert.tone] }}
+      className="pointer-events-auto flex min-h-[58px] items-center gap-3 border-[3px] border-black bg-paper px-2 py-1.5 text-left"
+      style={{ boxShadow: `5px 5px 0 0 ${TONE[alert.tone]}` }}
     >
-      {alert.avatar !== undefined && <Avatar id={alert.avatar} size={40} expression={alert.tone === 'danger' ? 'dead' : 'raise'} />}
+      {alert.avatar !== undefined && (
+        <span className="shrink-0 border-2 border-black bg-ink-800">
+          <AnimeFace look={publicLook(alert.avatar)} size={44} crop="face" expression={alert.tone === 'danger' ? 'shock' : 'raise'} />
+        </span>
+      )}
       {alert.emoji && <span className="text-3xl">{alert.emoji}</span>}
-      <span className="flex-1">
-        <span className="block text-base font-semibold text-paper">{alert.title}</span>
-        {alert.body && <span className="block text-sm text-paper-dim">{alert.body}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-lg uppercase leading-tight text-ink-950">{alert.title}</span>
+        {alert.body && <span className="block text-sm font-semibold text-ink-600">{alert.body}</span>}
       </span>
     </motion.button>
   );
 }
 
-/** "Winked! 3, 2, 1". Ends when the death or the "phew" arrives. */
+/** "Winked!" A heartbeat countdown that ends when the death or the "phew" arrives. */
 function Countdown({ alert }: { alert: Alert }) {
   const dismiss = useGame((s) => s.dismiss);
   const events = useGame((s) => s.snap?.events ?? []);
@@ -90,17 +104,15 @@ function Countdown({ alert }: { alert: Alert }) {
 
   useEffect(() => {
     if (secs !== last.current && secs > 0) {
-      play('countdown');
+      play('heartbeat');
       void vibrate(HAPTICS.countdown);
+      fx.shake(4, 160);
     }
     last.current = secs;
   }, [secs]);
 
-  // Resolve on the outcome, with a safety timeout.
   useEffect(() => {
-    const resolved = events.some(
-      (e) => e.seq > alert.id && ((e.event.type === 'PlayerDied' && e.event.playerId === me) || e.event.type === 'Phew'),
-    );
+    const resolved = events.some((e) => e.seq > alert.id && ((e.event.type === 'PlayerDied' && e.event.playerId === me) || e.event.type === 'Phew'));
     if (resolved) dismiss(alert.id);
   }, [events, alert.id, me, dismiss]);
   useEffect(() => {
@@ -113,40 +125,85 @@ function Countdown({ alert }: { alert: Alert }) {
     <motion.div
       role="alertdialog"
       aria-label={`${alert.title} ${secs}`}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center"
-      style={{ backgroundColor: color.ink[950], backgroundImage: 'radial-gradient(circle at 50% 45%, rgba(255,90,110,0.38), transparent 70%)' }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden px-6 text-center"
+      style={{ backgroundColor: color.ink[950], backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,45,85,0.45), transparent 70%)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
+      <div className="speedlines-strong absolute inset-0 opacity-60" />
+      {alert.avatar !== undefined && (
+        <motion.div className="relative w-full max-w-[460px] border-y-[5px] border-black bg-ink-900" initial={{ x: '-100%' }} animate={{ x: 0 }} transition={{ duration: 0.25 }}>
+          <AnimeFace look={publicLook(alert.avatar)} size={460} crop="eyes" expression="wink" className="h-auto w-full" />
+        </motion.div>
+      )}
       <motion.h2
-        className="font-display text-5xl font-semibold text-danger"
-        initial={reduce ? false : { scale: 1.6, rotate: -6 }}
-        animate={{ scale: 1, rotate: 0 }}
+        className="title-outline relative mt-4 font-display text-6xl uppercase leading-none text-crimson"
+        style={{ textShadow: '5px 5px 0 #000' }}
+        initial={reduce ? false : { scale: 2, rotate: -8 }}
+        animate={{ scale: 1, rotate: -3 }}
         transition={m.bouncy}
       >
         {alert.title}
       </motion.h2>
-      {alert.body && <p className="mt-3 text-lg text-paper">{alert.body}</p>}
-      {alert.avatar !== undefined && (
-        <div className="mt-4">
-          <Avatar id={alert.avatar} size={96} expression="wink" />
-        </div>
-      )}
+      {alert.body && <p className="relative mt-2 font-display text-xl uppercase text-paper">{alert.body}</p>}
       <AnimatePresence mode="popLayout">
         <motion.span
           key={secs}
-          className="mt-6 font-display text-[120px] leading-none tabular-nums text-paper"
-          initial={reduce ? { opacity: 0 } : { scale: 2, opacity: 0 }}
+          className="title-outline relative mt-4 font-display text-[150px] leading-none tabular-nums text-paper"
+          initial={reduce ? { opacity: 0 } : { scale: 2.4, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
+          exit={{ opacity: 0, scale: 0.6 }}
+          transition={{ duration: 0.22 }}
         >
           {secs > 0 ? secs : '…'}
         </motion.span>
       </AnimatePresence>
-      <p className="mt-6 text-sm text-paper-faint">Stay still. Act natural.</p>
+      <p className="relative mt-4 font-display text-lg uppercase tracking-widest text-paper-faint">Stay still. Act natural.</p>
     </motion.div>
+  );
+}
+
+/** Your death: the killer character's finisher, then the death card. */
+function FinisherAlert({ alert }: { alert: Alert }) {
+  const [done, setDone] = useState(false);
+  const dismiss = useGame((s) => s.dismiss);
+  useAutoDismiss(alert, 0, done);
+  const killer = character(alert.character);
+  return (
+    <AnimatePresence mode="wait">
+      {!done ? (
+        <FinisherScene key="scene" kind={alert.finisher ?? 'slash'} characterId={alert.character ?? null} onDone={() => setDone(true)} />
+      ) : (
+        <motion.div
+          key="card"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink-950 px-6 text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => dismiss(alert.id)}
+          role="alertdialog"
+          aria-label={alert.title}
+        >
+          <div className="screentone absolute inset-0 opacity-60" />
+          {alert.avatar !== undefined && (
+            <div className="relative border-[4px] border-paper bg-ink-800 grayscale" style={{ boxShadow: `6px 6px 0 0 ${color.crimson.DEFAULT}` }}>
+              <AnimeFace look={publicLook(alert.avatar)} size={170} crop="face" expression="dead" />
+            </div>
+          )}
+          <h2 className="title-outline relative mt-5 font-display text-6xl uppercase leading-none text-paper" style={{ textShadow: `5px 5px 0 ${color.crimson.DEFAULT}` }}>
+            {alert.title}
+          </h2>
+          {killer && (
+            <p className="relative mt-2 font-display text-lg uppercase tracking-wider text-crimson">
+              Taken by {killer.name}, {killer.title}
+            </p>
+          )}
+          {alert.body && <p className="relative mt-2 font-semibold text-paper-dim">{alert.body}</p>}
+          <p className="relative mt-6 text-xs font-semibold uppercase text-paper-faint">Tap to close</p>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -154,10 +211,9 @@ function Modal({ alert }: { alert: Alert }) {
   useAutoDismiss(alert);
   const dismiss = useGame((s) => s.dismiss);
   const reduce = useReducedMotion();
-  const isDeath = alert.title.startsWith("You're dead") || alert.title.startsWith('You died');
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 px-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/85 px-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -165,12 +221,12 @@ function Modal({ alert }: { alert: Alert }) {
       role="alertdialog"
       aria-label={alert.title}
     >
-      {isDeath && !reduce && <Poof />}
+      <div className="speedlines absolute inset-0" />
       <motion.div
-        className="relative w-full max-w-sm rounded-xl border-2 bg-ink-850 p-6 text-center shadow-lift"
-        style={{ borderColor: TONE[alert.tone] }}
-        initial={reduce ? { opacity: 0 } : { scale: 0.7, y: 30, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
+        className="relative w-full max-w-sm border-[4px] border-paper bg-ink-850 p-6 text-center"
+        style={{ boxShadow: `7px 7px 0 0 ${TONE[alert.tone]}` }}
+        initial={reduce ? { opacity: 0 } : { scale: 0.6, rotate: -6, opacity: 0 }}
+        animate={{ scale: 1, rotate: 0, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={m.bouncy}
       >
@@ -179,29 +235,32 @@ function Modal({ alert }: { alert: Alert }) {
             <RoleBadge role={alert.role} team={getRole(alert.role).team} size={96} />
           </div>
         )}
-        {!alert.role && alert.avatar !== undefined && (
+        {!alert.role && (alert.character || alert.avatar !== undefined) && (
           <div className="mb-3 flex justify-center">
-            <Avatar id={alert.avatar} size={110} expression={isDeath ? 'dead' : alert.tone === 'danger' ? 'shock' : 'sly'} />
+            <div className="border-[3px] border-black bg-ink-800">
+              <Portrait alert={alert} size={120} expression={alert.tone === 'danger' ? 'shock' : 'sly'} />
+            </div>
           </div>
         )}
         {alert.emoji && <div className="mb-2 text-6xl">{alert.emoji}</div>}
-        <h2 className="font-display text-2xl font-semibold text-paper">{alert.title}</h2>
-        {alert.body && <p className="mt-2 text-paper-dim">{alert.body}</p>}
-        <p className="mt-4 text-xs text-paper-faint">Tap to close</p>
+        <h2 className="title-outline font-display text-3xl uppercase leading-tight text-paper">{alert.title}</h2>
+        {alert.body && <p className="mt-2 font-semibold text-paper-dim">{alert.body}</p>}
+        <p className="mt-4 text-xs font-semibold uppercase text-paper-faint">Tap to close</p>
       </motion.div>
     </motion.div>
   );
 }
 
-/** Plays on every phone at once: the Snitch's tip and arrest verdicts. */
+/** Plays on every phone at once: the Snitch's tip, arrest and hearing verdicts. */
 function Spotlight({ alert }: { alert: Alert }) {
   useAutoDismiss(alert);
   const dismiss = useGame((s) => s.dismiss);
   const reduce = useReducedMotion();
-  const verdict = alert.role !== undefined;
+  const verdict = alert.role !== undefined || alert.title === 'Hung jury';
+  const stamp = alert.tone === 'good' ? 'Guilty' : alert.title === 'Hung jury' ? 'Tied' : alert.title.includes('voted out') ? 'Out' : 'Innocent';
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-ink-950/90 px-6 text-center"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-ink-950/95 px-6 text-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -214,86 +273,43 @@ function Spotlight({ alert }: { alert: Alert }) {
         style={{ background: `conic-gradient(from 160deg at 50% 0%, transparent 0deg, ${color.spot.glow} 20deg, transparent 40deg)` }}
         initial={reduce ? { opacity: 1 } : { opacity: 0, scaleY: 0.4 }}
         animate={{ opacity: 1, scaleY: 1 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5 }}
       />
       {alert.avatar !== undefined && (
-        <motion.div initial={reduce ? false : { y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...m.soft, delay: 0.15 }}>
-          <Avatar id={alert.avatar} size={160} expression={verdict ? (alert.tone === 'good' ? 'sly' : 'shock') : 'shock'} />
+        <motion.div className="relative border-[4px] border-paper bg-ink-800" style={{ boxShadow: `6px 6px 0 0 ${TONE[alert.tone]}` }} initial={reduce ? false : { y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...m.soft, delay: 0.1 }}>
+          <AnimeFace look={publicLook(alert.avatar)} size={170} crop="face" expression="shock" />
         </motion.div>
       )}
-      <h2 className="mt-5 font-display text-3xl font-semibold text-paper">{alert.title}</h2>
-      {alert.body && <p className="mt-2 text-paper-dim">{alert.body}</p>}
+      <h2 className="title-outline relative mt-5 font-display text-4xl uppercase leading-tight text-paper" style={{ textShadow: `4px 4px 0 ${TONE[alert.tone]}` }}>
+        {alert.title}
+      </h2>
+      {alert.body && <p className="relative mt-2 font-display text-lg uppercase tracking-wide text-paper-dim">{alert.body}</p>}
       {verdict && (
         <motion.div
-          className="mt-6 rounded-md border-4 px-5 py-2 font-display text-3xl font-bold uppercase tracking-widest"
+          className="relative mt-6 border-[5px] px-5 py-1 font-display text-4xl uppercase tracking-widest"
           style={{ borderColor: TONE[alert.tone], color: TONE[alert.tone] }}
-          initial={reduce ? { opacity: 0 } : { scale: 3, rotate: -20, opacity: 0 }}
+          initial={reduce ? { opacity: 0 } : { scale: 3, rotate: -24, opacity: 0 }}
           animate={{ scale: 1, rotate: -8, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 600, damping: 20, delay: 0.35 }}
+          transition={{ type: 'spring', stiffness: 640, damping: 18, delay: 0.3 }}
         >
-          {alert.tone === 'good' ? 'Guilty' : 'Innocent'}
+          {stamp}
         </motion.div>
       )}
     </motion.div>
   );
 }
 
-/** The Insomniac's nameless buzz: just a glow at the screen edge. */
+/** The Insomniac's nameless buzz: a glow at the screen edge. */
 function Pulse({ alert }: { alert: Alert }) {
   useAutoDismiss(alert);
   return (
     <motion.div
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-40"
-      style={{ boxShadow: `inset 0 0 60px 10px ${color.spot.glow}` }}
+      style={{ boxShadow: `inset 0 0 70px 12px ${color.violet.glow}` }}
       initial={{ opacity: 0 }}
       animate={{ opacity: [0, 1, 0] }}
       transition={{ duration: 0.9 }}
     />
   );
-}
-
-/** A canvas "poof" of smoke when you die. */
-function Poof() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2 - 60;
-    const puffs = Array.from({ length: 28 }, () => {
-      const a = Math.random() * Math.PI * 2;
-      const v = 1.5 + Math.random() * 3.5;
-      return { x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, r: 10 + Math.random() * 18, life: 1 };
-    });
-    let raf = 0;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let alive = false;
-      for (const p of puffs) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.96;
-        p.vy = p.vy * 0.96 - 0.03;
-        p.r += 0.6;
-        p.life -= 0.016;
-        if (p.life <= 0) continue;
-        alive = true;
-        ctx.globalAlpha = p.life * 0.5;
-        ctx.fillStyle = color.ink[300];
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      if (alive) raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return <canvas ref={ref} className="pointer-events-none fixed inset-0 h-full w-full" aria-hidden="true" />;
 }

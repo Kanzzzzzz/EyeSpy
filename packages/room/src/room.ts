@@ -60,7 +60,12 @@ interface ConnInfo {
   lastSeen: number;
   /** Highest event seq sent to this connection. */
   sentSeq: number;
+  /** The last view + presence sent, to skip sending an identical one. */
+  lastSent: string | null;
 }
+
+/** Opening panels is frequent; cap it per phone so one client can't flood the host. */
+const LOOKS_PER_SECOND = 12;
 
 /**
  * One game room, running on the host phone (or in Node for tests).
@@ -74,6 +79,7 @@ export class Room {
   private conns = new Map<string, ConnInfo>();
   /** When each player's last connection dropped. */
   private droppedAt = new Map<PlayerId, number>();
+  private lookBudget = new Map<PlayerId, { tokens: number; at: number }>();
   private readonly now: () => number;
   private readonly random: () => number;
   private readonly opts: RoomOptions;
@@ -118,7 +124,7 @@ export class Room {
   // -------------------------------------------------------------------------
 
   connect(connId: string, conn: Connection): void {
-    this.conns.set(connId, { conn, playerId: null, lastSeen: this.now(), sentSeq: 0 });
+    this.conns.set(connId, { conn, playerId: null, lastSeen: this.now(), sentSeq: 0, lastSent: null });
   }
 
   receive(connId: string, raw: string): void {
@@ -138,7 +144,12 @@ export class Room {
         return this.sendTo(info, { t: 'pong', at: msg.at, serverTime: this.now() });
       case 'action': {
         if (!info.playerId) return this.sendError(info, 'notJoined', 'Say hello first.');
-        const r = this.dispatch(info.playerId, msg.action);
+        const isLook = msg.action.type === 'look';
+        if (isLook && !this.takeLookToken(info.playerId)) {
+          return this.sendTo(info, { t: 'result', id: msg.id, ok: false, error: 'cooldown', message: 'Slow down.' });
+        }
+        // Gaze is fleeting: it isn't worth a disk write on every glance.
+        const r = this.dispatch(info.playerId, msg.action, { persist: !isLook });
         this.sendTo(info, {
           t: 'result',
           id: msg.id,
@@ -275,15 +286,29 @@ export class Room {
   }
 
   /** Run an action through the engine; broadcast and persist on change. */
-  dispatch(by: PlayerId, body: ActionBody): ReduceResult {
+  dispatch(by: PlayerId, body: ActionBody, opts: { persist?: boolean } = {}): ReduceResult {
     const r = reduce(this.state, { ...body, by, at: this.now() } as never);
     if (r.state !== this.state) {
       this.state = r.state;
       this.forgetRemovedPlayers();
-      this.persist();
+      if (opts.persist !== false) this.persist();
       this.broadcast();
     }
     return r;
+  }
+
+  private takeLookToken(playerId: PlayerId): boolean {
+    const now = this.now();
+    const b = this.lookBudget.get(playerId) ?? { tokens: LOOKS_PER_SECOND, at: now };
+    b.tokens = Math.min(LOOKS_PER_SECOND, b.tokens + ((now - b.at) / 1000) * LOOKS_PER_SECOND);
+    b.at = now;
+    if (b.tokens < 1) {
+      this.lookBudget.set(playerId, b);
+      return false;
+    }
+    b.tokens -= 1;
+    this.lookBudget.set(playerId, b);
+    return true;
   }
 
   private forgetRemovedPlayers(): void {
@@ -310,7 +335,11 @@ export class Room {
     return undefined;
   }
 
-  /** Send each joined phone its own view and the events it hasn't seen yet. */
+  /**
+   * Send each joined phone its own view and the events it hasn't seen yet.
+   * Phones whose view didn't change (most of them, when someone opens a
+   * panel) get nothing.
+   */
   broadcast(): void {
     const presence = this.presence();
     const serverTime = this.now();
@@ -318,7 +347,11 @@ export class Room {
       if (!info.playerId) continue;
       const events = visibleEvents(this.state, info.playerId, info.sentSeq);
       info.sentSeq = Math.max(info.sentSeq, this.state.nextSeq - 1);
-      this.sendTo(info, { t: 'state', view: viewFor(this.state, info.playerId), events, presence, serverTime });
+      const view = viewFor(this.state, info.playerId);
+      const key = JSON.stringify([view, presence]);
+      if (events.length === 0 && key === info.lastSent) continue;
+      info.lastSent = key;
+      this.sendTo(info, { t: 'state', view, events, presence, serverTime });
     }
   }
 

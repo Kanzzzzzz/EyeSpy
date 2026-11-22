@@ -5,6 +5,7 @@ import {
   isKillerRole,
   isSheriffRole,
   nextRandom,
+  ROSTER,
   SPECIAL_ROLE_IDS,
   viewFor,
   type ActionBody,
@@ -43,8 +44,11 @@ function checkInvariants(s: GameState, prevAlive: Set<string>, ctx: string) {
     if (p.dying && !p.alive) fail(`${p.id} dying but dead`);
     if (p.dying && !s.pendingDeaths.some((d) => d.victimId === p.id)) fail(`${p.id} dying with no pending death`);
     if (p.alive && !prevAlive.has(p.id)) fail(`${p.id} came back to life`);
-    if (isSheriffRole(s, p.id) && !p.alive && s.roles[p.id]!.role === 'sheriff' && !p.arrested) fail('a Sheriff died');
-    if (!p.alive && isKillerRole(s, p.id) && !p.arrested) fail('a Killer died without an arrest');
+    if (isSheriffRole(s, p.id) && !p.alive && s.roles[p.id]!.role === 'sheriff' && !p.arrested && !p.votedOut) fail('a Sheriff died');
+    if (!p.alive && isKillerRole(s, p.id) && !p.arrested && !p.votedOut) fail('a Killer died without being caught');
+    if (p.lookingAt === p.id) fail(`${p.id} is looking at themselves`);
+    if (s.phase === 'ended' && p.lookingAt !== null) fail('gaze left over after the game ended');
+    if (p.votedOut && p.alive) fail(`${p.id} voted out but alive`);
     const rs = s.roles[p.id]!;
     if (rs.role === 'lover' && rs.data.partnerId) {
       const partner = s.players.find((q) => q.id === rs.data.partnerId)!;
@@ -54,12 +58,13 @@ function checkInvariants(s: GameState, prevAlive: Set<string>, ctx: string) {
       }
     }
     if (rs.team !== getRole(rs.role).team && rs.role !== 'copycat') fail(`${p.id} team mismatch`);
+    if (rs.character && !rs.character.startsWith(`${rs.role}.`)) fail(`${p.id} has another role's character`);
   }
   if (s.shushLockKillsRemaining < 0) fail('negative shush lock');
 
   if (s.phase === 'ended') {
     if (!s.result) fail('ended without a result');
-    if (s.pendingDeaths.length || s.timers.length || s.pendingArrest) fail('work left after the game ended');
+    if (s.pendingDeaths.length || s.timers.length || s.pendingArrest || s.hearing) fail('work left after the game ended');
     for (const id of s.result!.winners) {
       const rs = s.roles[id]!;
       if (rs.team !== s.result!.winner && !s.result!.extraWinners.includes(id)) fail(`${id} wrongly won`);
@@ -69,9 +74,32 @@ function checkInvariants(s: GameState, prevAlive: Set<string>, ctx: string) {
   if (s.phase === 'playing' && checkWin(s)) fail('a win condition is met but the game is still running');
   if (s.phase === 'arrest' && !s.pendingArrest) fail('arrest phase without an arrest');
   if (s.phase !== 'arrest' && s.pendingArrest) fail('stray pending arrest');
+  if (s.phase === 'hearing' && !s.hearing) fail('hearing phase without a hearing');
+  if (s.phase !== 'hearing' && s.hearing) fail('stray hearing');
+  if (s.hearing) {
+    for (const [voter, target] of Object.entries(s.hearing.votes)) {
+      if (voter === target) fail('someone voted for themselves');
+      if (!s.players.find((p) => p.id === voter)!.alive) fail('a dead player voted');
+    }
+  }
 }
 
-const ACTIONS = ['wink', 'raiseEyebrow', 'useAbility', 'arrest', 'ready', 'advance', 'advance', 'advance'] as const;
+const ACTIONS = [
+  'look',
+  'look',
+  'look',
+  'wink',
+  'raiseEyebrow',
+  'useAbility',
+  'arrest',
+  'vote',
+  'vote',
+  'ready',
+  'pickCharacter',
+  'advance',
+  'advance',
+  'advance',
+] as const;
 
 function playRandomGame(seed: number): { ended: boolean; steps: number; state: GameState } {
   const rng = makeRng(seed);
@@ -112,8 +140,21 @@ function playRandomGame(seed: number): { ended: boolean; steps: number; state: G
       case 'ready':
         body = { type: 'ready' };
         break;
+      case 'look':
+        body = { type: 'look', targetId: rng.next() < 0.1 ? null : target };
+        break;
+      case 'pickCharacter': {
+        const role = g.state.roles[by]?.role;
+        body = { type: 'pickCharacter', characterId: role ? rng.pick(ROSTER[rng.next() < 0.8 ? role : 'killer']).id : 'x' };
+        break;
+      }
       default:
         body = { type: kind, targetId: target };
+    }
+    // Half the time, set up the gaze the action needs, as a real player would.
+    if (['wink', 'raiseEyebrow', 'useAbility', 'arrest'].includes(body.type) && rng.next() < 0.5) {
+      g.try(by, { type: 'look', targetId: target });
+      if (body.type !== 'arrest') g.try(target, { type: 'look', targetId: by });
     }
     const actor = body.type === 'tick' ? '__system__' : by;
     g.try(actor, body);
@@ -140,6 +181,7 @@ describe('1,000 random games', () => {
     expect(ended).toBeGreaterThan(950);
     expect(reasons.wrongArrest).toBeGreaterThan(0);
     expect(reasons.killersOutnumber).toBeGreaterThan(0);
-    expect(reasons.allKillersArrested).toBeGreaterThan(0);
+    expect(reasons.allKillersCaught).toBeGreaterThan(0);
+    expect(reasons.sheriffVotedOut).toBeGreaterThan(0);
   });
 });

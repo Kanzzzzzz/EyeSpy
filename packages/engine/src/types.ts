@@ -12,7 +12,7 @@ export const SYSTEM = '__system__';
 
 export type Team = 'killers' | 'town' | 'alone';
 
-export const STANDARD_ROLE_IDS = ['killer', 'sheriff', 'shush', 'snitch', 'lover', 'citizen'] as const;
+export const STANDARD_ROLE_IDS = ['killer', 'sheriff', 'shush', 'snitch', 'judge', 'lover', 'citizen'] as const;
 export const SPECIAL_ROLE_IDS = [
   'dramaQueen',
   'bodyguard',
@@ -27,7 +27,7 @@ export type StandardRoleId = (typeof STANDARD_ROLE_IDS)[number];
 export type SpecialRoleId = (typeof SPECIAL_ROLE_IDS)[number];
 export type RoleId = StandardRoleId | SpecialRoleId;
 
-export type Phase = 'lobby' | 'reveal' | 'playing' | 'arrest' | 'ended';
+export type Phase = 'lobby' | 'reveal' | 'playing' | 'arrest' | 'hearing' | 'ended';
 
 export const MIN_PLAYERS = 5;
 export const MAX_PLAYERS = 20;
@@ -44,11 +44,19 @@ export interface Player {
   connected: boolean;
   ready: boolean;
   arrested: boolean;
+  votedOut: boolean;
+  /**
+   * Whose panel this player has open (whose eyes they're looking at).
+   * Secret: other phones only learn whether this player is looking at *them*.
+   */
+  lookingAt: PlayerId | null;
 }
 
 export interface RoleState {
   role: RoleId;
   team: Team;
+  /** The secret character picked for this role (see roster.ts). */
+  character: string | null;
   /** Players this role was told about at the start (for example fellow Killers). */
   knows: PlayerId[];
   raisesSent: number;
@@ -68,6 +76,7 @@ export interface RoleCounts {
   sheriff: number;
   shush: number;
   snitch: number;
+  judge: number;
   loverPairs: number;
 }
 
@@ -82,6 +91,7 @@ export interface Settings {
   victimsSeeKiller: boolean;
   revealTimeoutMs: number;
   arrestVerdictMs: number;
+  hearingMs: number;
   raisesToUnlock: number;
   shushLockKills: number;
 }
@@ -99,6 +109,14 @@ export interface PendingArrest {
   verdictAt: number;
 }
 
+export interface Hearing {
+  judgeId: PlayerId;
+  startedAt: number;
+  endsAt: number;
+  /** voter -> who they voted for. Secret until the result. */
+  votes: Record<PlayerId, PlayerId>;
+}
+
 export interface RoleTimer {
   id: number;
   at: number;
@@ -107,7 +125,7 @@ export interface RoleTimer {
   data: Record<string, unknown>;
 }
 
-export type WinReason = 'allKillersArrested' | 'wrongArrest' | 'killersOutnumber';
+export type WinReason = 'allKillersCaught' | 'wrongArrest' | 'killersOutnumber' | 'sheriffVotedOut';
 
 export interface GameResult {
   winner: 'town' | 'killers';
@@ -119,7 +137,7 @@ export interface GameResult {
   endedAt: number;
 }
 
-export type DeathCause = 'wink' | 'heartbreak';
+export type DeathCause = 'wink' | 'heartbreak' | 'vote';
 
 export type GameEvent =
   | { type: 'PlayerJoined'; playerId: PlayerId }
@@ -131,17 +149,37 @@ export type GameEvent =
   | { type: 'PlayerReady'; playerId: PlayerId }
   | { type: 'GameStarted' }
   | { type: 'WinkSent'; killerId: PlayerId; targetId: PlayerId; fake: boolean }
-  | { type: 'Winked'; targetId: PlayerId; killerId: PlayerId | null; deadline: number }
+  | {
+      type: 'Winked';
+      targetId: PlayerId;
+      killerId: PlayerId | null;
+      deadline: number;
+      /** The winker's secret character, for the kill animation. A fake wink borrows a real Killer's. */
+      killerCharacter: string | null;
+    }
+  /** You were looking at someone when they winked. You don't learn at whom. */
+  | { type: 'SawWink'; winkerId: PlayerId }
+  /** You were looking at someone when they raised an eyebrow at somebody else. */
+  | { type: 'SawRaise'; raiserId: PlayerId }
   | { type: 'SheriffWinked'; sheriffId: PlayerId; killerId: PlayerId }
   | { type: 'PlayerDied'; playerId: PlayerId; cause: DeathCause }
   | { type: 'EyebrowRaised'; byId: PlayerId; targetId: PlayerId }
   | { type: 'AbilityUnlocked'; playerId: PlayerId; abilityId: string }
   | { type: 'AbilityUsed'; playerId: PlayerId; abilityId: string; targetId: PlayerId | null }
-  | { type: 'SheriffShushed'; kills: number }
+  | { type: 'SheriffShushed'; kills: number; shushCharacter: string | null }
   | { type: 'ShushLifted' }
-  | { type: 'SnitchTip'; suspectId: PlayerId }
-  | { type: 'ArrestStarted'; targetId: PlayerId; verdictAt: number }
+  | { type: 'SnitchTip'; suspectId: PlayerId; snitchCharacter: string | null }
+  | { type: 'ArrestStarted'; targetId: PlayerId; verdictAt: number; sheriffCharacter: string | null }
   | { type: 'ArrestResult'; targetId: PlayerId; correct: boolean; role: RoleId }
+  | { type: 'HearingStarted'; endsAt: number; judgeCharacter: string | null }
+  | { type: 'VoteCast'; voterId: PlayerId }
+  | {
+      type: 'HearingResult';
+      /** Votes each player got. Who voted for whom stays secret. */
+      tally: Record<PlayerId, number>;
+      eliminatedId: PlayerId | null;
+      role: RoleId | null;
+    }
   | { type: 'GameEnded'; result: GameResult }
   | { type: 'LobbyReset' }
   // Special roles
@@ -167,7 +205,7 @@ export interface LoggedEvent {
 }
 
 export interface GameState {
-  version: 1;
+  version: 2;
   phase: Phase;
   round: number;
   hostId: PlayerId | null;
@@ -178,6 +216,7 @@ export interface GameState {
   rng: number;
   pendingDeaths: PendingDeath[];
   pendingArrest: PendingArrest | null;
+  hearing: Hearing | null;
   revealDeadline: number | null;
   shushLockKillsRemaining: number;
   timers: RoleTimer[];
@@ -206,10 +245,14 @@ export type PlayerAction =
   | { type: 'configure'; settings: SettingsPatch }
   | { type: 'start' }
   | { type: 'ready' }
+  | { type: 'pickCharacter'; characterId: string }
+  /** Open someone's panel (look into their eyes), or null to look away. */
+  | { type: 'look'; targetId: PlayerId | null }
   | { type: 'wink'; targetId: PlayerId }
   | { type: 'raiseEyebrow'; targetId: PlayerId }
   | { type: 'useAbility'; abilityId: string; targetId?: PlayerId | null; payload?: string | null }
   | { type: 'arrest'; targetId: PlayerId }
+  | { type: 'vote'; targetId: PlayerId }
   | { type: 'playAgain' }
   | { type: 'kick'; playerId: PlayerId }
   | { type: 'reorder'; order: PlayerId[] }
@@ -233,6 +276,8 @@ export type ErrorCode =
   | 'notAllowed'
   | 'unknownPlayer'
   | 'invalidTarget'
+  | 'noEyeContact'
+  | 'notLooking'
   | 'cooldown'
   | 'dead'
   | 'shushed'
@@ -244,6 +289,7 @@ export type ErrorCode =
   | 'nameTaken'
   | 'badName'
   | 'unknownAbility'
+  | 'unknownCharacter'
   | 'unknownAction';
 
 export interface ReduceResult {

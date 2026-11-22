@@ -34,6 +34,8 @@ export interface RoleContext {
   addSoloWinner(id: PlayerId): void;
   /** Switch a player to a different role (used by the Copycat). */
   changeRole(id: PlayerId, role: RoleId): void;
+  /** Pause play and open a hearing: every living player votes someone out (used by the Judge). */
+  startHearing(judgeId: PlayerId): void;
   random(): number;
 }
 
@@ -44,7 +46,16 @@ export interface AbilityDefinition {
   label: string;
   /** One line shown on the button's confirm sheet. */
   hint: string;
+  /**
+   * 'player' abilities act on whoever's panel the user has open, so the user
+   * must be looking at the target.
+   */
   target: AbilityTarget;
+  /**
+   * A gesture made with the eyes. It needs eye contact with the target, and
+   * everyone looking at the user at that moment sees it happen.
+   */
+  gesture?: 'wink';
   /** 'raises': unlocked once the player has sent `settings.raisesToUnlock` eyebrow raises. */
   unlock?: 'raises';
   /** Maximum uses per game; null means unlimited. */
@@ -91,6 +102,8 @@ export interface RoleDefinition {
   canWink?: boolean;
   /** May arrest. */
   canArrest?: boolean;
+  /** May raise an eyebrow (the roles whose abilities unlock by raising). */
+  canRaise?: boolean;
   /** Counts as a Killer for win checks: arresting one is a correct arrest. */
   isKiller?: boolean;
   /** Counts as a Sheriff for the "only Sheriff, Killers and one other" rule. */

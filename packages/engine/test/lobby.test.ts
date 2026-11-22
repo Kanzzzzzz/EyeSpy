@@ -75,10 +75,12 @@ describe('suggested role mix', () => {
   });
 
   it('matches the design doc table', () => {
-    expect(suggestRoles(5)).toEqual({ killer: 1, sheriff: 1, shush: 1, snitch: 1, loverPairs: 0 });
-    expect(suggestRoles(7)).toEqual({ killer: 1, sheriff: 1, shush: 1, snitch: 1, loverPairs: 1 });
-    expect(suggestRoles(12)).toEqual({ killer: 2, sheriff: 2, shush: 1, snitch: 1, loverPairs: 1 });
-    expect(suggestRoles(20)).toEqual({ killer: 3, sheriff: 3, shush: 1, snitch: 1, loverPairs: 1 });
+    expect(suggestRoles(5)).toEqual({ killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 0, loverPairs: 0 });
+    expect(suggestRoles(6)).toMatchObject({ judge: 0 });
+    // The Judge joins from 7 players.
+    expect(suggestRoles(7)).toEqual({ killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 1, loverPairs: 1 });
+    expect(suggestRoles(12)).toEqual({ killer: 2, sheriff: 2, shush: 1, snitch: 1, judge: 1, loverPairs: 1 });
+    expect(suggestRoles(20)).toEqual({ killer: 3, sheriff: 3, shush: 1, snitch: 1, judge: 1, loverPairs: 1 });
   });
 
   it('rejects mixes that cannot work', () => {
@@ -86,7 +88,7 @@ describe('suggested role mix', () => {
     expect(checkRoleMix(base, 4).ok).toBe(false);
     expect(checkRoleMix({ ...base, roles: { ...base.roles, killer: 0 } }, 6).ok).toBe(false);
     expect(checkRoleMix({ ...base, roles: { ...base.roles, loverPairs: 3 } }, 6).ok).toBe(false);
-    expect(checkRoleMix({ ...base, roles: { killer: 3, sheriff: 2, shush: 0, snitch: 0, loverPairs: 0 } }, 6).ok).toBe(false);
+    expect(checkRoleMix({ ...base, roles: { killer: 3, sheriff: 2, shush: 0, snitch: 0, judge: 0, loverPairs: 0 } }, 6).ok).toBe(false);
   });
 });
 
@@ -111,6 +113,7 @@ describe('start and role reveal', () => {
       expect(count('sheriff')).toBe(mix.sheriff);
       expect(count('shush')).toBe(mix.shush);
       expect(count('snitch')).toBe(mix.snitch);
+      expect(count('judge')).toBe(mix.judge);
       expect(count('lover')).toBe(mix.loverPairs * 2);
       expect(roles.length).toBe(n);
     }

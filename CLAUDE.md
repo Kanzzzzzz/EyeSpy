@@ -8,6 +8,8 @@ its hotspot; every other phone joins. The design doc is `docs/design.md`.
 - `packages/engine`: pure game rules. `reduce(state, action) -> { state, events }`,
   `viewFor(state, playerId)`, win checks, roles. No I/O, no timers, no `Date.now()`.
 - `packages/engine/src/roles/{standard,special}`: one file per role.
+- `packages/engine/src/roster.ts`: the secret characters for each role (ids, names, moves).
+  Their looks live in `app/src/art/characters.ts`, drawn by `app/src/art/AnimeFace.tsx`.
 - `packages/protocol`: Zod schemas for every message, QR formats, constants.
 - `packages/room`: the host-side `Room` (tokens, reconnects, heartbeats,
   snapshots), the phone-side `GameClient`, transports and `Bot`.
@@ -32,11 +34,16 @@ its hotspot; every other phone joins. The design doc is `docs/design.md`.
 3. Rules work is test-first: write failing tests that describe the rule, then the code.
 4. A new role is one file under `packages/engine/src/roles/`, registered in
    `roles/index.ts`, with its own tests, a badge glyph in `app/src/art/RoleBadge.tsx`,
-   and off by default if it is special.
-5. Never send a phone anything it may not see. Anything role-related goes
+   at least 3 characters in `roster.ts` + `characters.ts`, and off by default if it is special.
+5. Eye rules: winks and raises need eye contact (both looking at each other);
+   arrests and targeted abilities act on the panel the player has open. Gaze is
+   secret: a phone only learns whether the person it looks at looks back, and how
+   many people look at it.
+6. Characters must be original. Never draw or name characters from existing anime or games.
+7. Never send a phone anything it may not see. Anything role-related goes
    through `viewFor` / event audiences; add a test when you add a field.
-6. Use design tokens (`app/src/design/tokens.ts`) via Tailwind classes. No raw
+8. Use design tokens (`app/src/design/tokens.ts`) via Tailwind classes. No raw
    hex colours outside the tokens file.
-7. Every borrowed asset or copied code goes in `CREDITS.md` with source and licence.
-8. Engine state must stay plain JSON (it is snapshotted to disk after every action).
-9. Bump `PROTOCOL_VERSION` in `packages/protocol` when a message shape changes.
+9. Every borrowed asset or copied code goes in `CREDITS.md` with source and licence.
+10. Engine state must stay plain JSON (it is snapshotted to disk after every action).
+11. Bump `PROTOCOL_VERSION` in `packages/protocol` when a message shape changes.

@@ -12,6 +12,8 @@ import {
   type TransportFactory,
 } from '@eyespy/room';
 import { play, setSoundEnabled, unlockAudio, preloadSounds } from '../audio/sounds';
+import { fx } from '../fx/fx';
+import { color } from '../design/tokens';
 import { APP_VERSION, HAPTICS, keepAwake, loadJson, saveJson, setHapticsEnabled, vibrate } from '../platform/device';
 import { startHosting, type HostSession } from '../platform/hosting';
 import { readSnapshot } from '../platform/snapshots';
@@ -67,6 +69,8 @@ interface State {
   busy: boolean;
   problem: string | null;
   bots: Bot[];
+  /** The panel you just opened, shown before the host confirms it. */
+  pendingLook: string | null | undefined;
 
   init(): Promise<void>;
   go(screen: Screen): void;
@@ -77,6 +81,10 @@ interface State {
   rejoinLast(): void;
   leaveGame(): Promise<void>;
   send(action: PlayerAction): Promise<ActionResult>;
+  /** Open someone's panel (look into their eyes), or null to look away. */
+  look(targetId: string | null): void;
+  vote(targetId: string): Promise<ActionResult>;
+  pickCharacter(characterId: string): Promise<ActionResult>;
   dismiss(id: number): void;
   addBots(n: number): void;
   clearProblem(): void;
@@ -86,10 +94,30 @@ function serverNowFor(client: GameClient | null) {
   return client ? client.serverNow() : Date.now();
 }
 
+let lookTimer: ReturnType<typeof setTimeout> | null = null;
+let lookWanted: string | null | undefined;
+let lookSentAt = 0;
+
+/** Send the newest panel choice, at most every 90 ms (the host caps looks per second). */
+function queueLook(client: GameClient, targetId: string | null) {
+  lookWanted = targetId;
+  if (lookTimer) return;
+  const wait = Math.max(0, 90 - (Date.now() - lookSentAt));
+  lookTimer = setTimeout(() => {
+    lookTimer = null;
+    lookSentAt = Date.now();
+    const t = lookWanted;
+    lookWanted = undefined;
+    if (t !== undefined) void client.send({ type: 'look', targetId: t });
+  }, wait);
+}
+
 export const useGame = create<State>((set, get) => {
   /** Wire a client into the store: snapshots, alerts, sounds, haptics. */
   function attach(client: GameClient, target: JoinTarget | null) {
     let lastPhase: string | null = null;
+    let hadEyeContact = false;
+    let lastKillerCharacter: string | null = null;
     client.subscribe((snap, fresh) => {
       const { prefs } = get();
       const view = snap.view;
@@ -105,14 +133,29 @@ export const useGame = create<State>((set, get) => {
       const now = client.serverNow();
       const newAlerts: Alert[] = [];
       for (const e of fresh) {
+        if (e.event.type === 'Winked' && e.event.targetId === snap.playerId) lastKillerCharacter = e.event.killerCharacter;
         if (now - e.at > STALE_MS) continue;
-        const a = eventToAlert(e, { me: snap.playerId, players });
+        if (e.event.type === 'PlayerJoined') play('join');
+        const a = eventToAlert(e, { me: snap.playerId, players, lastKillerCharacter });
         if (!a) continue;
-        newAlerts.push(a);
         if (a.sound) play(a.sound);
         if (a.haptic) void vibrate(a.haptic);
-        if (e.event.type === 'PlayerJoined') play('join');
+        if (a.sfx) {
+          const tint = a.tone === 'danger' ? color.crimson.DEFAULT : a.tone === 'good' ? color.ok : a.tone === 'spot' ? color.spot.DEFAULT : color.paper.DEFAULT;
+          const y = a.style === 'toast' ? window.innerHeight * 0.2 : window.innerHeight * 0.32;
+          fx.text(window.innerWidth * (0.62 + Math.random() * 0.12), y, a.sfx, { color: tint, size: a.style === 'toast' ? 34 : 54 });
+        }
+        if (a.style !== 'silent') newAlerts.push(a);
       }
+      // A soft "ting" the moment eyes meet.
+      const contact = !!view?.me?.eyeContact;
+      if (contact && !hadEyeContact && view?.phase === 'playing') {
+        play('eyeContact');
+        void vibrate(HAPTICS.eyeContact);
+      }
+      hadEyeContact = contact;
+      // The host has caught up with the panel we opened.
+      if (get().pendingLook !== undefined && view?.me && view.me.lookingAt === get().pendingLook) set({ pendingLook: undefined });
       if (view && view.phase !== lastPhase) {
         if (view.phase === 'reveal') preloadSounds();
         if (view.phase === 'ended' && view.result) {
@@ -120,10 +163,9 @@ export const useGame = create<State>((set, get) => {
           play(won ? 'win' : 'lose');
           void vibrate(won ? HAPTICS.win : HAPTICS.death);
         }
-        if (view.phase === 'arrest' && lastPhase === 'playing') {
-          play('drumroll');
-          void vibrate(HAPTICS.arrest);
-        }
+        if (view.phase === 'arrest' && lastPhase === 'playing') play('drumroll');
+        if (view.phase === 'hearing' && lastPhase === 'playing') setTimeout(() => play('courtSting'), 700);
+        if (view.phase !== 'playing') set({ pendingLook: undefined });
         void keepAwake(view.phase !== 'lobby');
         lastPhase = view.phase;
         void prefs;
@@ -134,7 +176,7 @@ export const useGame = create<State>((set, get) => {
       }));
     });
     client.start();
-    set({ client, snap: client.snapshot, screen: 'game', alerts: [], problem: null });
+    set({ client, snap: client.snapshot, screen: 'game', alerts: [], problem: null, pendingLook: undefined });
   }
 
   function makeClient(transport: TransportFactory, token: string | null, hostKey: string | null) {
@@ -166,6 +208,7 @@ export const useGame = create<State>((set, get) => {
     busy: false,
     problem: null,
     bots: [],
+    pendingLook: undefined,
 
     async init() {
       const prefs = await loadJson('eyespy.prefs', DEFAULT_PREFS);
@@ -267,6 +310,22 @@ export const useGame = create<State>((set, get) => {
         }));
       }
       return r;
+    },
+
+    look(targetId) {
+      const client = get().client;
+      if (!client) return;
+      set({ pendingLook: targetId });
+      play('whoosh');
+      queueLook(client, targetId);
+    },
+
+    vote(targetId) {
+      return get().send({ type: 'vote', targetId });
+    },
+
+    pickCharacter(characterId) {
+      return get().send({ type: 'pickCharacter', characterId });
     },
 
     dismiss(id) {

@@ -12,7 +12,7 @@ import {
  * Bump when a message shape changes in a way old apps can't handle.
  * Phones send theirs in `hello`; a mismatch gets a clear "update" message.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Bonjour / mDNS service type every host announces. */
 export const SERVICE_TYPE = '_eyespy._tcp.';
@@ -40,6 +40,7 @@ const settingsPatch = z
         sheriff: z.number().int().min(0).max(MAX_PLAYERS),
         shush: z.number().int().min(0).max(3),
         snitch: z.number().int().min(0).max(3),
+        judge: z.number().int().min(0).max(2),
         loverPairs: z.number().int().min(0).max(5),
       })
       .partial()
@@ -52,6 +53,7 @@ const settingsPatch = z
     victimsSeeKiller: z.boolean(),
     revealTimeoutMs: ms,
     arrestVerdictMs: ms,
+    hearingMs: ms,
     raisesToUnlock: z.number().int().min(0).max(20),
     shushLockKills: z.number().int().min(0).max(20),
   })
@@ -62,6 +64,8 @@ export const playerActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('configure'), settings: settingsPatch }).strict(),
   z.object({ type: z.literal('start') }).strict(),
   z.object({ type: z.literal('ready') }).strict(),
+  z.object({ type: z.literal('pickCharacter'), characterId: z.string().min(1).max(48) }).strict(),
+  z.object({ type: z.literal('look'), targetId: id.nullable() }).strict(),
   z.object({ type: z.literal('wink'), targetId: id }).strict(),
   z.object({ type: z.literal('raiseEyebrow'), targetId: id }).strict(),
   z
@@ -73,6 +77,7 @@ export const playerActionSchema = z.discriminatedUnion('type', [
     })
     .strict(),
   z.object({ type: z.literal('arrest'), targetId: id }).strict(),
+  z.object({ type: z.literal('vote'), targetId: id }).strict(),
   z.object({ type: z.literal('playAgain') }).strict(),
   z.object({ type: z.literal('kick'), playerId: id }).strict(),
   z.object({ type: z.literal('reorder'), order: z.array(id).max(MAX_PLAYERS) }).strict(),

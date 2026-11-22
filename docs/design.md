@@ -24,7 +24,15 @@ EyeSpy is a phone-only party game in the wink-murder genre. Players sit in the s
 - [x] **Shush lock.** Does it last for 2 more kills after the Shush acts, or until the Killer has 2 kills in total? \[2 more kills\]
 - [x] **Snitch tip.** Does it show the Snitch's name? \[No\]
 - [x] **Several Killers.** With 2 or 3 Killers, do they win when only the Sheriff, the Killers and one other are alive? \[Yes\]
-- [x] **Art direction.** Noir detective, playful cartoon, or neon? \[Playful noir\]
+- [x] **Art direction.** Noir detective, playful cartoon, or neon? \[Playful noir\] *Changed in v2: anime, sakuga style.*
+
+**Version 2 decisions** (Nov 2026)
+
+- [x] **Look mode: manga panels.** Every player is a manga panel. Tap one to open it and see that person's eyes up close; only one panel can be open at a time, like looking at one person in the room.
+- [x] **Real eye contact.** A wink or an eyebrow raise only works when both players are looking at each other. Anyone looking at the winker at that moment sees the wink (but not who it was aimed at), and each phone shows how many people are looking at it.
+- [x] **Only the Shush, Snitch and Judge raise eyebrows.** Citizens, Lovers, the Killer and the Sheriff can't.
+- [x] **New role: the Judge**, a standard role from 7 players. See Roles.
+- [x] **Anime theme with secret characters.** Every role has at least 3 original anime-style characters. You pick yours privately on the reveal screen; nobody sees it until game over, except your victims, who see your character's finisher. Real anime characters (for example Sukuna) aren't used: the app stores reject other studios' characters, so the cast is original, in the same spirit (a cursed demon-king Killer with a domain-style finisher, a silent blade, a puppet queen).
 
 ## Platform and tech stack
 
@@ -81,11 +89,12 @@ Each phone keeps one two-way connection to the host: it sends actions, and the h
 
 These are Kanz's rules. The room plays in silence and every action goes through the app. The Killer wins by thinning out the room, and the Sheriff wins by arresting the Killer. Nobody knows who the Shush and Snitch are, not even the Killer or the Sheriff, so every eyebrow raise could come from a friend or an enemy. Anything marked **Proposal** is my addition for you to confirm.
 
-**Gestures become taps.** Every phone shows the same grid of players' faces, and everyone taps all game long, so tapping alone gives nobody away.
+**Looking becomes panels (v2).** Every player is a manga panel. Tap a panel to look into that person's eyes; only one panel is open at a time. The open panel shows whether they're looking back at you (eye contact) or away, and plays any wink or raise they make while you watch. A counter shows how many people are looking at you right now, but not who.
 
-- **Wink** (Killer only): tap a face, then Wink. The victim's phone buzzes and counts down 3 seconds so the room can't match the timing, then the death shows on every phone. **Proposal:** a 15-second cooldown between winks.
-- **Eyebrow raise** (everyone): tap a face, then Raise eyebrow. The target sees who raised an eyebrow at them. Anyone can do it to bluff or stir up panic, which hides the Shush and Snitch charging up: their 3rd raise unlocks their ability. **Proposal:** raises at least 10 seconds apart.
-- **Arrest** (Sheriff only): tap a face and hold to confirm. The game pauses for the verdict.
+- **Wink** (Killer only): needs eye contact. The victim's phone counts down 3 seconds so the room can't match the timing, then the death shows on every phone and the victim sees the Killer character's finisher. Anyone looking at the Killer at that moment sees the wink, but not who it hit. A 15-second cooldown between winks.
+- **Eyebrow raise** (Shush, Snitch and Judge only): needs eye contact. The target sees who raised an eyebrow at them, and anyone watching the raiser sees it too. The 3rd raise unlocks the role's ability. Raises at least 10 seconds apart.
+- **Arrest** (Sheriff only): open the suspect's panel and hold to confirm. No eye contact needed. The game pauses for the verdict.
+- **Abilities that target a player** act on the panel you have open.
 - **Stretch idea:** a camera mode where the front camera detects real winks and eyebrow raises on the device, for groups who want the physical feel back.
 
 | Role | Team | Knows at the start | Ability |
@@ -94,24 +103,26 @@ These are Kanz's rules. The room plays in silence and every action goes through 
 | Sheriff | Town | Own role only; hidden from everyone | Arrests a player. Arresting the Killer wins; arresting anyone else loses the game. Can't be killed |
 | Shush | Killers | Own role only. Doesn't know the Killer or Sheriff, and they don't know the Shush | After 3 eyebrow raises, one time only: shushes the Sheriff, who then can't arrest until 2 more kills happen. Works without knowing who the Sheriff is |
 | Snitch | Town | Own role only. Doesn't know the Killer or Sheriff, and they don't know the Snitch | After 3 eyebrow raises, one time only: names who they think the Killer is, shown on every phone. The Sheriff decides whether to act on it |
+| Judge (v2, 7+ players) | Town | Own role only | After 3 eyebrow raises, one time only: calls a hearing. Play stops and every living player votes in secret for 20 seconds. The most votes is eliminated and their role revealed; a tie eliminates nobody. Voting out a Sheriff loses the game for the town; voting out the last Killer wins it |
 | Lovers (a pair) | Town | Nothing: a Lover doesn't know who their partner is | If one dies, the other dies too. A Lover holds no other role |
-| Citizen | Town | Own role only | No ability. Watch and wait; when you die, your death and its timing become clues for the Sheriff and Snitch |
+| Citizen | Town | Own role only | No ability, and no eyebrow raises. Watch closely: a wink you witness is the best clue in the game |
 
 **Win conditions**
 
 - **Town wins** when the Sheriff arrests the Killer. With more than one Killer, each correct arrest removes one and the Sheriff keeps going until all are caught.
-- **Killers win** the moment the Sheriff arrests anyone who isn't a Killer.
+- **Killers win** the moment the Sheriff arrests anyone who isn't a Killer, or when a hearing votes out a Sheriff.
+- A hearing that votes out the last Killer wins it for the town.
 - **Killers also win** when only 3 players are alive: the Sheriff, the Killer and one other. With 2 or 3 Killers, **Proposal:** when only the Sheriff, the Killers and one other are alive.
 - The Shush wins with the Killers; the Snitch, Lovers and Citizens win with the town, alive or dead.
 
 **Suggested role mix by player count** (host can override every number)
 
-| Players | Killers | Sheriff | Shush | Snitch | Lover pair | Citizens |
-| --- | --- | --- | --- | --- | --- | --- |
-| 5–6 | 1 | 1 | 1 | 1 | 0 | rest |
-| 7–9 | 1 | 1 | 1 | 1 | 1 | rest |
-| 10–14 | 2 | 2 | 1 | 1 | 1 | rest |
-| 15–20 | 3 | 3 | 1 | 1 | 1 | rest |
+| Players | Killers | Sheriff | Shush | Snitch | Judge | Lover pair | Citizens |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 5–6 | 1 | 1 | 1 | 1 | 0 | 0 | rest |
+| 7–9 | 1 | 1 | 1 | 1 | 1 | 1 | rest |
+| 10–14 | 2 | 2 | 1 | 1 | 1 | 1 | rest |
+| 15–20 | 3 | 3 | 1 | 1 | 1 | 1 | rest |
 
 **The tricky part.** Because nobody knows the Shush and Snitch, an eyebrow raise is a puzzle. The Killer can't tell whether a raiser is an ally charging up the Shush or a Snitch about to name them. The Sheriff can't tell help from a trap. The Killer also risks winking the hidden Sheriff, which gives away their name, unless the Shush has already locked arrests. **Rule:** victims see who winked them on their death screen and must stay silent; the host can switch this off in game settings.
 
@@ -170,6 +181,8 @@ Players hold their phones all game, so every screen is built for a quick glance:
 **Accessibility.** Tap targets of at least 48 px, team colours that work for colour-blind players (each team also has a distinct icon and pattern), a reduced-motion setting that swaps big animations for fades, and every audio cue paired with a visual one.
 
 ## Art, animation and sound
+
+*v2:* the look is now anime, in the spirit of the sakuga reference (controls that squash and overshoot on springs, with drawn impact bursts, slashes, smoke and manga sound-effect lettering). Dark manga pages with paper-white panel borders, hard offset shadows, speed lines and screentone; crimson, electric cyan and gold accents; an original cast drawn with a code-based anime character kit; finishers per Killer character (a domain-style realm, a single blade flash, shadow puppetry). The v1 text below is kept for history.
 
 I suggest a "playful noir" look: deep ink-blue backgrounds, one warm spotlight colour, chunky rounded characters, and an eye motif that blinks, winks and narrows throughout the UI. It reads well on a phone held in a dim room and gives the deaths and reveals room to be theatrical. All art is original to EyeSpy.
 

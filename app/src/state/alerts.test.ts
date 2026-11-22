@@ -14,13 +14,28 @@ describe('eventToAlert', () => {
     expect(eventToAlert(ev({ type: 'EyebrowRaised', byId: 'me', targetId: 'leo' }), ctx)).toBeNull();
   });
 
-  it('counts down a wink and names the killer when allowed', () => {
-    const a = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: 'leo', deadline: 3100 }), ctx)!;
+  it('tells a witness who they saw wink, not who was hit', () => {
+    const a = eventToAlert(ev({ type: 'SawWink', winkerId: 'leo' }), ctx)!;
+    expect(a.title).toBe('You saw Leo wink!');
+    expect(a.sfx).toBe('!?');
+  });
+
+  it('counts down a wink, names the killer when allowed, and keeps their character for the finisher', () => {
+    const a = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: 'leo', deadline: 3100, killerCharacter: 'killer.garaku' }), ctx)!;
     expect(a.style).toBe('countdown');
     expect(a.deadline).toBe(3100);
     expect(a.body).toBe('Leo winked at you');
-    const hidden = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: null, deadline: 3100 }), ctx)!;
+    expect(a.character).toBe('killer.garaku');
+    const hidden = eventToAlert(ev({ type: 'Winked', targetId: 'me', killerId: null, deadline: 3100, killerCharacter: null }), ctx)!;
     expect(hidden.body).toBeUndefined();
+  });
+
+  it("plays the killer character's finisher when you die", () => {
+    const a = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: 'killer.garaku' })!;
+    expect(a.style).toBe('finisher');
+    expect(a.finisher).toBe('realm');
+    const b = eventToAlert(ev({ type: 'PlayerDied', playerId: 'me', cause: 'wink' }), { ...ctx, lastKillerCharacter: 'killer.kagerou' })!;
+    expect(b.finisher).toBe('slash');
   });
 
   it('tells the Sheriff who the Killer is', () => {
@@ -28,28 +43,39 @@ describe('eventToAlert', () => {
   });
 
   it('spotlights the Snitch tip without naming the Snitch', () => {
-    const a = eventToAlert(ev({ type: 'SnitchTip', suspectId: 'leo' }), ctx)!;
+    const a = eventToAlert(ev({ type: 'SnitchTip', suspectId: 'leo', snitchCharacter: 'snitch.yoru' }), ctx)!;
     expect(a.style).toBe('spotlight');
     expect(a.title).toBe("The Snitch thinks it's Leo");
+    expect(a.body).toBe('Fox Whisper');
+  });
+
+  it('announces hearing results', () => {
+    const out = eventToAlert(ev({ type: 'HearingResult', tally: { leo: 3 }, eliminatedId: 'leo', role: 'citizen' }), ctx)!;
+    expect(out.title).toBe('Leo is voted out');
+    const tie = eventToAlert(ev({ type: 'HearingResult', tally: { leo: 1, ava: 1 }, eliminatedId: null, role: null }), ctx)!;
+    expect(tie.title).toBe('Hung jury');
   });
 
   it('gives every alert its own vibration', () => {
     const patterns = new Set(
       [
         { type: 'EyebrowRaised', byId: 'leo', targetId: 'me' },
-        { type: 'Winked', targetId: 'me', killerId: null, deadline: 1 },
+        { type: 'Winked', targetId: 'me', killerId: null, deadline: 1, killerCharacter: null },
         { type: 'SheriffWinked', sheriffId: 'me', killerId: 'leo' },
-        { type: 'SheriffShushed', kills: 2 },
-        { type: 'SnitchTip', suspectId: 'leo' },
+        { type: 'SheriffShushed', kills: 2, shushCharacter: null },
+        { type: 'SnitchTip', suspectId: 'leo', snitchCharacter: null },
         { type: 'PlayerDied', playerId: 'me', cause: 'wink' },
+        { type: 'SawWink', winkerId: 'leo' },
+        { type: 'HearingStarted', endsAt: 1, judgeCharacter: null },
       ].map((e) => JSON.stringify(eventToAlert(ev(e as GameEvent), ctx)!.haptic)),
     );
-    expect(patterns.size).toBe(6);
+    expect(patterns.size).toBe(8);
   });
 
   it('pairs every audible alert with a visible title', () => {
     const events: GameEvent[] = [
       { type: 'PlayerDied', playerId: 'leo', cause: 'heartbreak' },
+      { type: 'PlayerDied', playerId: 'leo', cause: 'vote' },
       { type: 'Buzz' },
       { type: 'Phew', targetId: 'me' },
       { type: 'ArrestResult', targetId: 'leo', correct: true, role: 'killer' },

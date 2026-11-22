@@ -1,11 +1,12 @@
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Avatar, AVATARS } from '../art/Avatar';
 import { LogoEye, Wordmark } from '../art/Logo';
 import { isNative } from '../platform/device';
 import { useGame } from '../state/store';
 import { Button, Screen, Spinner } from '../ui/kit';
-import { motion as m } from '../design/tokens';
+import { color, motion as m } from '../design/tokens';
+import { play } from '../audio/sounds';
 
 export function Home() {
   const prefs = useGame((s) => s.prefs);
@@ -28,95 +29,100 @@ export function Home() {
   };
 
   return (
-    <Screen className="justify-between">
-      <div className="flex items-center justify-end gap-1">
-        <button type="button" onClick={() => go('how')} className="min-h-tap px-3 text-sm font-semibold text-paper-dim">
+    <Screen className="justify-between" lines>
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={() => go('how')} burst={null}>
           How to play
-        </button>
-        <button type="button" onClick={() => go('settings')} className="flex h-tap w-tap items-center justify-center text-paper-dim" aria-label="Settings">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => go('settings')} burst={null} aria-label="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+            <circle cx="12" cy="12" r="3.2" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" />
           </svg>
-        </button>
+        </Button>
       </div>
 
-      <motion.div
-        className="flex flex-col items-center text-center"
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ ...m.soft, delay: 0.05 }}
-      >
-        <LogoEye size={190} />
-        <Wordmark className="mt-2 text-5xl" />
-        <p className="mt-2 max-w-[18rem] text-base text-paper-dim">A silent party game of winks, raised eyebrows and very bad liars.</p>
+      <motion.div className="flex flex-col items-center text-center" initial={{ opacity: 0, scale: 0.8, rotate: -4 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ ...m.bouncy, delay: 0.05 }}>
+        <LogoEye size={210} />
+        <Wordmark className="mt-1 text-6xl" />
+        <p className="mt-3 max-w-[19rem] font-semibold text-paper-dim">
+          Lock eyes. Wink to kill. Raise a brow to plot. A silent party game for very bad liars.
+        </p>
       </motion.div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {resumable && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-spot/60 bg-ink-850 p-3">
-            <p className="text-sm text-paper-dim">Your game was interrupted mid-round.</p>
+          <div className="border-[3px] border-spot bg-ink-850 p-3" style={{ boxShadow: '5px 5px 0 0 #000' }}>
+            <p className="text-sm font-semibold text-paper-dim">Your game was interrupted mid-round.</p>
             <Button className="mt-2 w-full" onClick={() => void resumeHosting()} disabled={busy}>
               Resume hosting
             </Button>
-          </motion.div>
+          </div>
         )}
         {!resumable && lastGame && (
-          <Button variant="secondary" onClick={rejoinLast}>
+          <Button variant="cyan" onClick={rejoinLast}>
             Rejoin game {lastGame.room}
           </Button>
         )}
 
-        <div className="flex items-center gap-3 rounded-lg border border-ink-600 bg-ink-850 p-2 pl-2">
+        <div className="flex items-center gap-3 border-[3px] border-paper bg-ink-850 p-2" style={{ boxShadow: `5px 5px 0 0 ${color.crimson.DEFAULT}` }}>
           <button
             type="button"
-            onClick={() => setPicking((p) => !p)}
-            className="shrink-0 rounded-full"
+            onClick={() => {
+              play('select');
+              setPicking((p) => !p);
+            }}
+            className="shrink-0 border-[3px] border-black bg-ink-700"
             aria-label="Choose your character"
             aria-expanded={picking}
           >
-            <Avatar id={prefs.avatar} size={56} expression={picking ? 'happy' : 'neutral'} />
+            <Avatar id={prefs.avatar} size={64} expression={picking ? 'happy' : 'neutral'} blink />
           </button>
           <input
             value={prefs.name}
             onChange={(e) => setPrefs({ name: e.target.value.slice(0, 16) })}
-            placeholder="Your name"
+            placeholder="YOUR NAME"
             maxLength={16}
             autoComplete="nickname"
             aria-label="Your name"
-            className="min-h-tap flex-1 bg-transparent font-display text-xl text-paper placeholder:text-paper-faint focus:outline-none"
+            className="min-h-tap min-w-0 flex-1 bg-transparent font-display text-3xl uppercase text-paper placeholder:text-paper-faint focus:outline-none"
           />
         </div>
-        {picking && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-6 gap-2">
-            {AVATARS.map((a, i) => (
-              <button
-                key={a.name}
-                type="button"
-                onClick={() => {
-                  setPrefs({ avatar: i });
-                  setPicking(false);
-                }}
-                className={`rounded-full p-0.5 ${i === prefs.avatar ? 'ring-2 ring-spot' : ''}`}
-                aria-label={a.name}
-              >
-                <Avatar id={i} size={48} />
-              </button>
-            ))}
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {picking && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="grid grid-cols-6 gap-2 overflow-hidden">
+              {AVATARS.map((a, i) => (
+                <motion.button
+                  key={a.name}
+                  type="button"
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => {
+                    play('select');
+                    setPrefs({ avatar: i });
+                    setPicking(false);
+                  }}
+                  className="border-[3px] bg-ink-800"
+                  style={{ borderColor: i === prefs.avatar ? color.cyan.DEFAULT : '#000' }}
+                  aria-label={a.name}
+                >
+                  <Avatar id={i} size={50} />
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {problem && <p className="rounded-md bg-danger/15 p-3 text-sm text-paper">{problem}</p>}
+        {problem && <p className="border-[3px] border-danger bg-ink-850 p-3 text-sm text-paper">{problem}</p>}
 
         <div className="grid grid-cols-2 gap-3">
-          <Button size="lg" onClick={proceed(() => void hostGame())} disabled={!nameOk || busy}>
-            {busy ? <Spinner /> : 'Host game'}
+          <Button size="lg" onClick={proceed(() => void hostGame())} disabled={!nameOk || busy} sfx="ドン">
+            {busy ? <Spinner /> : 'Host'}
           </Button>
-          <Button size="lg" variant="secondary" onClick={proceed(() => go('join'))} disabled={!nameOk}>
-            Join game
+          <Button size="lg" variant="cyan" onClick={proceed(() => go('join'))} disabled={!nameOk} sfx="シュッ">
+            Join
           </Button>
         </div>
-        {!nameOk && <p className="text-center text-sm text-paper-faint">Pick a name to play.</p>}
+        {!nameOk && <p className="text-center text-sm font-semibold text-paper-faint">Pick a name to play.</p>}
       </div>
     </Screen>
   );
