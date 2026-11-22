@@ -19,7 +19,8 @@ async function hostWithBots(page: Page, bots = 4) {
 
 test('home, how to play, settings, join', async ({ page }) => {
   await page.goto('/');
-  await page.waitForTimeout(600);
+  await expect(page.getByRole('button', { name: 'Host game' })).toBeVisible();
+  await page.waitForTimeout(800);
   await shot(page, '01-home');
   await page.getByLabel('Choose your character').click();
   await page.waitForTimeout(300);

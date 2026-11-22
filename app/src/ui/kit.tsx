@@ -253,7 +253,7 @@ export function PresenceDot({ state }: { state: 'online' | 'reconnecting' | 'awa
 export function Spinner() {
   return (
     <motion.span
-      className="inline-block h-5 w-5 rounded-full border-2 border-paper-faint border-t-spot"
+      className="inline-block h-5 w-5 shrink-0 rounded-full border-2 border-paper-faint border-t-spot"
       animate={{ rotate: 360 }}
       transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
     />

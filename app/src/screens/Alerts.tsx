@@ -114,7 +114,7 @@ function Countdown({ alert }: { alert: Alert }) {
       role="alertdialog"
       aria-label={`${alert.title} ${secs}`}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center"
-      style={{ background: `radial-gradient(circle at 50% 45%, rgba(255,90,110,0.35), ${color.ink[950]} 70%)` }}
+      style={{ backgroundColor: color.ink[950], backgroundImage: 'radial-gradient(circle at 50% 45%, rgba(255,90,110,0.38), transparent 70%)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -210,7 +210,7 @@ function Spotlight({ alert }: { alert: Alert }) {
       aria-label={alert.title}
     >
       <motion.div
-        className="pointer-events-none absolute left-1/2 top-0 h-[75vh] w-[120vw] -translate-x-1/2"
+        className="pointer-events-none absolute left-[-10vw] top-0 h-[75vh] w-[120vw] origin-top"
         style={{ background: `conic-gradient(from 160deg at 50% 0%, transparent 0deg, ${color.spot.glow} 20deg, transparent 40deg)` }}
         initial={reduce ? { opacity: 1 } : { opacity: 0, scaleY: 0.4 }}
         animate={{ opacity: 1, scaleY: 1 }}

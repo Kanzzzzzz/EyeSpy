@@ -277,6 +277,9 @@ export const useGame = create<State>((set, get) => {
       const hosting = get().hosting;
       if (!hosting) return;
       const taken = new Set(hosting.room.state.players.map((p) => p.name.toLowerCase()));
+      // Give bots characters nobody is using yet, so faces stay tellable apart.
+      const usedAvatars = new Set(hosting.room.state.players.map((p) => p.avatar));
+      const freeAvatars = Array.from({ length: 12 }, (_, i) => i).filter((i) => !usedAvatars.has(i));
       const names = ['Ava', 'Ben', 'Cleo', 'Dev', 'Eli', 'Fay', 'Gus', 'Hana', 'Ivo', 'Jun', 'Kit', 'Leo', 'Nia', 'Oz', 'Pia', 'Quin', 'Ray', 'Sol', 'Tess'];
       const bots: Bot[] = [];
       for (const name of names) {
@@ -285,7 +288,7 @@ export const useGame = create<State>((set, get) => {
         const client = new GameClient({
           transport: localTransport(hosting.room, 'bot'),
           name,
-          avatar: Math.floor(Math.random() * 12),
+          avatar: freeAvatars.shift() ?? Math.floor(Math.random() * 12),
           appVersion: APP_VERSION,
         });
         const bot = new Bot(client, { thinkMs: 1200, winkChance: 0.06, raiseChance: 0.08, arrestChance: 0.0015 });

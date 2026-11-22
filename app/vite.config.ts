@@ -9,5 +9,7 @@ export default defineConfig({
   // The bundle ships inside the app, so one larger chunk is fine.
   build: { target: 'es2022', outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 1200 },
   server: { port: 5173 },
+  // Don't scan the copied web bundles inside the native projects.
+  optimizeDeps: { entries: ['index.html'] },
   test: { name: 'app', include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom' },
 });
