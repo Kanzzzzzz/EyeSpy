@@ -39,6 +39,27 @@ export function App() {
     void useGame.getState().init();
   }, []);
 
+  // Android back button and gesture: step back instead of doing nothing.
+  useEffect(() => {
+    if (!isNative) return;
+    let handle: { remove: () => Promise<void> } | null = null;
+    void CapApp.addListener('backButton', () => {
+      const s = useGame.getState();
+      if (s.screen === 'home') {
+        void CapApp.minimizeApp();
+        return;
+      }
+      if (s.screen !== 'game') {
+        s.go('home');
+        return;
+      }
+      const phase = s.snap?.view?.phase;
+      const midRound = s.snap?.status === 'online' && phase && phase !== 'lobby' && phase !== 'ended';
+      if (!midRound || window.confirm(s.hosting ? 'End the game for everyone?' : 'Leave this game?')) void s.leaveGame();
+    }).then((h) => (handle = h));
+    return () => void handle?.remove();
+  }, []);
+
   // Tension music only while a round is being played.
   useEffect(() => {
     if (music && (phase === 'playing' || phase === 'arrest' || phase === 'hearing')) startMusic(alive === false ? 0.18 : 0.32);

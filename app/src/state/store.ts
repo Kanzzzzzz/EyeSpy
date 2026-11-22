@@ -303,12 +303,27 @@ export const useGame = create<State>((set, get) => {
 
     async leaveGame() {
       const { client, hosting, bots } = get();
-      bots.forEach((b) => b.stop());
-      client?.stop(client.snapshot.view?.phase === 'lobby');
-      await hosting?.stop();
+      // Go home first, then tidy up: a failing shutdown must never strand you.
+      set({ client: null, snap: null, hosting: null, alerts: [], screen: 'home', bots: [], lastGame: null, adminReveal: false, botsPaused: false, pendingLook: undefined });
       void keepAwake(false);
       void saveJson('eyespy.lastGame', null);
-      set({ client: null, snap: null, hosting: null, alerts: [], screen: 'home', bots: [], lastGame: null, adminReveal: false, botsPaused: false });
+      for (const b of bots) {
+        try {
+          b.stop();
+        } catch {
+          /* already gone */
+        }
+      }
+      try {
+        client?.stop(client.snapshot.view?.phase === 'lobby');
+      } catch {
+        /* already closed */
+      }
+      try {
+        await hosting?.stop();
+      } catch (err) {
+        console.warn('Stopping the host failed', err);
+      }
     },
 
     async send(action) {
