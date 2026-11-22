@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { AnimeFace, type Crop, type Expression, type Gaze } from './AnimeFace';
+import type { Crop, Expression, Gaze } from './AnimeFace';
+import { Face } from './Face';
 import { PUBLIC_LOOKS, publicLook } from './characters';
 
 export type { Expression } from './AnimeFace';
@@ -31,8 +32,8 @@ export const Avatar = memo(function Avatar({
 }) {
   const look = publicLook(id);
   return (
-    <AnimeFace
-      look={look}
+    <Face
+      avatar={id}
       size={size}
       crop={crop}
       gaze={gaze}

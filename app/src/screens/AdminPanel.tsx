@@ -1,7 +1,6 @@
 import { getRole, SPECIAL_ROLE_IDS, STANDARD_ROLE_IDS, type RoleId } from '@eyespy/engine';
 import { useState } from 'react';
-import { AnimeFace } from '../art/AnimeFace';
-import { publicLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { RoleBadge } from '../art/RoleBadge';
 import { color } from '../design/tokens';
 import { admin } from '../state/admin';
@@ -91,7 +90,7 @@ export function AdminPanel() {
                   return (
                     <li key={p.id} className="border-[3px] border-black bg-ink-800 p-2">
                       <div className="mb-1.5 flex items-center gap-2">
-                        <AnimeFace look={publicLook(p.avatar)} size={34} crop="face" />
+                        <Face avatar={p.avatar} size={34} crop="face" />
                         <span className="flex-1 font-display text-lg uppercase text-paper">{p.name}</span>
                         {role && <span className="text-xs font-semibold text-paper-faint">{getRole(role).name}</span>}
                       </div>

@@ -3,8 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { CourtScene } from '../motion/CourtScene';
-import { AnimeFace } from '../art/AnimeFace';
-import { publicLook, roleLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { color, motion as m } from '../design/tokens';
 import { burstAt } from '../fx/fx';
 import { play } from '../audio/sounds';
@@ -66,7 +65,7 @@ export function Hearing() {
                 className="shrink-0 border-[4px] border-paper bg-ink-800"
                 style={{ boxShadow: `5px 5px 0 0 ${color.spot.DEFAULT}` }}
               >
-                <AnimeFace look={roleLook(judgeCharacter, 'judge')} size={110} crop="face" expression="angry" glowEyes />
+                <Face character={judgeCharacter} role={'judge'} size={110} crop="face" expression="angry" glowEyes />
               </motion.div>
               <div className="min-w-0 flex-1">
                 <p className="font-jp text-sm font-black tracking-[0.4em] text-spot">審判</p>
@@ -112,7 +111,7 @@ export function Hearing() {
                       aria-pressed={mine}
                       aria-label={`Vote out ${p.name}${voted ? ' (has voted)' : ''}`}
                     >
-                      <AnimeFace look={publicLook(p.avatar)} size={52} crop="face" expression={mine ? 'shock' : 'neutral'} />
+                      <Face avatar={p.avatar} size={52} crop="face" expression={mine ? 'shock' : 'neutral'} />
                       <span className="min-w-0 flex-1 truncate font-display text-xl uppercase text-paper">{p.name}</span>
                       {voted && (
                         <span className="absolute -right-2 -top-2 rotate-12 border-2 border-black bg-spot px-1 font-display text-xs uppercase text-ink-950">

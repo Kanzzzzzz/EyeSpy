@@ -1,8 +1,7 @@
 import { character, getRole } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { AnimeFace } from '../art/AnimeFace';
-import { publicLook, roleLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { FinisherScene } from '../art/Finishers';
 import { RoleBadge } from '../art/RoleBadge';
 import { play } from '../audio/sounds';
@@ -58,8 +57,8 @@ export function Alerts() {
 }
 
 function Portrait({ alert, size, expression = 'neutral' }: { alert: Alert; size: number; expression?: 'neutral' | 'shock' | 'sly' | 'dead' | 'wink' | 'raise' }) {
-  if (alert.character) return <AnimeFace look={roleLook(alert.character)} size={size} crop="face" expression={expression} />;
-  if (alert.avatar !== undefined) return <AnimeFace look={publicLook(alert.avatar)} size={size} crop="face" expression={expression} />;
+  if (alert.character) return <Face character={alert.character} size={size} crop="face" expression={expression} />;
+  if (alert.avatar !== undefined) return <Face avatar={alert.avatar} size={size} crop="face" expression={expression} />;
   return null;
 }
 
@@ -80,7 +79,7 @@ function Toast({ alert }: { alert: Alert }) {
     >
       {alert.avatar !== undefined && (
         <span className="shrink-0 border-2 border-black bg-ink-800">
-          <AnimeFace look={publicLook(alert.avatar)} size={44} crop="face" expression={alert.tone === 'danger' ? 'shock' : 'raise'} />
+          <Face avatar={alert.avatar} size={44} crop="face" expression={alert.tone === 'danger' ? 'shock' : 'raise'} />
         </span>
       )}
       {alert.emoji && <span className="text-3xl">{alert.emoji}</span>}
@@ -134,7 +133,7 @@ function Countdown({ alert }: { alert: Alert }) {
       <div className="speedlines-strong absolute inset-0 opacity-60" />
       {alert.avatar !== undefined && (
         <motion.div className="relative w-full max-w-[460px] border-y-[5px] border-black bg-ink-900" initial={{ x: '-100%' }} animate={{ x: 0 }} transition={{ duration: 0.25 }}>
-          <AnimeFace look={publicLook(alert.avatar)} size={460} crop="eyes" expression="wink" className="h-auto w-full" />
+          <Face avatar={alert.avatar} size={460} crop="eyes" expression="wink" className="h-auto w-full" />
         </motion.div>
       )}
       <motion.h2
@@ -188,7 +187,7 @@ function FinisherAlert({ alert }: { alert: Alert }) {
           <div className="screentone absolute inset-0 opacity-60" />
           {alert.avatar !== undefined && (
             <div className="relative border-[4px] border-paper bg-ink-800 grayscale" style={{ boxShadow: `6px 6px 0 0 ${color.crimson.DEFAULT}` }}>
-              <AnimeFace look={publicLook(alert.avatar)} size={170} crop="face" expression="dead" />
+              <Face avatar={alert.avatar} size={170} crop="face" expression="dead" />
             </div>
           )}
           <h2 className="title-outline relative mt-5 font-display text-6xl uppercase leading-none text-paper" style={{ textShadow: `5px 5px 0 ${color.crimson.DEFAULT}` }}>
@@ -277,7 +276,7 @@ function Spotlight({ alert }: { alert: Alert }) {
       />
       {alert.avatar !== undefined && (
         <motion.div className="relative border-[4px] border-paper bg-ink-800" style={{ boxShadow: `6px 6px 0 0 ${TONE[alert.tone]}` }} initial={reduce ? false : { y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...m.soft, delay: 0.1 }}>
-          <AnimeFace look={publicLook(alert.avatar)} size={170} crop="face" expression="shock" />
+          <Face avatar={alert.avatar} size={170} crop="face" expression="shock" />
         </motion.div>
       )}
       <h2 className="title-outline relative mt-5 font-display text-4xl uppercase leading-tight text-paper" style={{ textShadow: `4px 4px 0 ${TONE[alert.tone]}` }}>

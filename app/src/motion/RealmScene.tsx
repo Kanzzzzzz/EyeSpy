@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { AnimeFace } from '../art/AnimeFace';
-import { roleLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { play } from '../audio/sounds';
 import { blade, clamp, ease, fitCanvas, lerp, rng, runScene, seg, slamText } from './engine';
 
@@ -23,7 +22,6 @@ export const REALM_DURATION = 4.2;
 export function RealmScene({ characterId, onDone }: { characterId: string | null; onDone: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const portrait = useRef<HTMLDivElement>(null);
-  const look = roleLook(characterId, 'killer');
 
   useEffect(() => {
     const c = canvas.current!;
@@ -232,7 +230,7 @@ export function RealmScene({ characterId, onDone }: { characterId: string | null
       <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
       <div ref={portrait} className="pointer-events-none absolute inset-x-0 top-[16%] flex justify-center" style={{ opacity: 0, willChange: 'transform, opacity' }}>
         <div style={{ WebkitMaskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', }}>
-          <AnimeFace look={look} size={Math.min(window.innerWidth * 0.78, 340)} crop="face" expression="sly" glowEyes />
+          <Face character={characterId} role={'killer'} size={Math.min(window.innerWidth * 0.78, 340)} crop="face" expression="sly" glowEyes />
         </div>
       </div>
     </div>

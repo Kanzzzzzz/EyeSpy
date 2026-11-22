@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { AnimeFace } from '../art/AnimeFace';
-import { roleLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { play } from '../audio/sounds';
 import { ease, fitCanvas, lerp, rng, runScene, seg, slamText } from './engine';
 
@@ -20,7 +19,6 @@ export const COURT_DURATION = 3.2;
 export function CourtScene({ characterId, onDone }: { characterId: string | null; onDone: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const portrait = useRef<HTMLDivElement>(null);
-  const look = roleLook(characterId, 'judge');
 
   useEffect(() => {
     const { ctx, w, h } = fitCanvas(canvas.current!);
@@ -239,7 +237,7 @@ export function CourtScene({ characterId, onDone }: { characterId: string | null
       <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
       <div ref={portrait} className="pointer-events-none absolute left-0 right-0 top-[34%] flex justify-center" style={{ opacity: 0, willChange: 'transform, opacity' }}>
         <div style={{ WebkitMaskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', }}>
-          <AnimeFace look={look} size={Math.min(window.innerWidth * 0.62, 280)} crop="face" expression="angry" glowEyes />
+          <Face character={characterId} role={'judge'} size={Math.min(window.innerWidth * 0.62, 280)} crop="face" expression="angry" glowEyes />
         </div>
       </div>
     </div>

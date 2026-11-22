@@ -1,6 +1,5 @@
 import { getRole, ROSTER, type RoleId } from '@eyespy/engine';
-import { AnimeFace } from '../art/AnimeFace';
-import { roleLook } from '../art/characters';
+import { Face } from '../art/Face';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { useGame } from '../state/store';
 import { Card, Label, Screen, TopBar } from '../ui/kit';
@@ -24,7 +23,7 @@ function RoleRow({ id }: { id: RoleId }) {
         <div className="mt-1.5 flex gap-1">
           {ROSTER[id].map((c) => (
             <span key={c.id} className="border-2 border-black bg-ink-800" title={`${c.name}, ${c.title}`}>
-              <AnimeFace look={roleLook(c.id)} size={34} crop="face" />
+              <Face character={c.id} size={34} crop="face" />
             </span>
           ))}
         </div>

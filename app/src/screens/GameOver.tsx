@@ -2,8 +2,8 @@ import confetti from 'canvas-confetti';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { character, getRole, type LoggedEvent, type PublicPlayer, type WinReason } from '@eyespy/engine';
-import { AnimeFace } from '../art/AnimeFace';
-import { publicLook, roleLook } from '../art/characters';
+import { Face } from '../art/Face';
+import { roleLook } from '../art/characters';
 import { RoleBadge, TeamIcon } from '../art/RoleBadge';
 import { color, motion as m } from '../design/tokens';
 import { fx } from '../fx/fx';
@@ -83,11 +83,11 @@ export function GameOver() {
                 style={{ background: winner ? color.ink[700] : color.ink[800] }}
               >
                 <span className="shrink-0 border-2 border-black bg-ink-900">
-                  <AnimeFace look={publicLook(p.avatar)} size={46} crop="face" expression={p.alive ? (winner ? 'happy' : 'neutral') : 'dead'} ghost={!p.alive} />
+                  <Face avatar={p.avatar} size={46} crop="face" expression={p.alive ? (winner ? 'happy' : 'neutral') : 'dead'} ghost={!p.alive} />
                 </span>
                 <span className="font-display text-xl text-paper-faint">→</span>
                 <span className="shrink-0 border-2 border-black" style={{ background: `${roleLook(p.character, p.role).accent}44` }}>
-                  <AnimeFace look={roleLook(p.character, p.role)} size={46} crop="face" />
+                  <Face character={p.character} role={p.role} size={46} crop="face" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-display text-lg uppercase leading-tight text-paper">{p.name}</span>

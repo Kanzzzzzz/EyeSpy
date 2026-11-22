@@ -1,8 +1,8 @@
 import { ROSTER } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useState } from 'react';
-import { AnimeFace } from '../art/AnimeFace';
-import { publicLook, roleLook } from '../art/characters';
+import { Face } from '../art/Face';
+import { roleLook } from '../art/characters';
 import { LogoEye } from '../art/Logo';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { play } from '../audio/sounds';
@@ -99,7 +99,7 @@ export function Reveal() {
             </span>
             <div className="mt-2 flex items-end gap-2">
               {me.role && <RoleBadge role={me.role} team={team} size={86} />}
-              {me.character && <AnimeFace look={roleLook(me.character, me.role)} size={86} crop="face" />}
+              {me.character && <Face character={me.character} role={me.role} size={86} crop="face" />}
             </div>
             <h3 className="title-outline mt-2 font-display text-5xl uppercase leading-none text-paper">{me.roleName}</h3>
             <p className="mt-2 text-sm font-semibold text-paper-dim">{me.summary}</p>
@@ -112,7 +112,7 @@ export function Reveal() {
                 <span className="text-xs font-semibold text-paper-faint">Fellow Killers:</span>
                 {knows.map((p) => (
                   <span key={p.id} className="flex items-center gap-1 text-xs font-semibold text-paper">
-                    <AnimeFace look={publicLook(p.avatar)} size={30} crop="face" expression="sly" />
+                    <Face avatar={p.avatar} size={30} crop="face" expression="sly" />
                     {p.name}
                   </span>
                 ))}
@@ -161,7 +161,7 @@ function CharacterCard({ id, name, title, move, chosen, onChoose }: { id: string
           {held ? (
             <motion.div key="face" className="absolute inset-0 flex flex-col items-center bg-ink-800" initial={{ rotateY: 90 }} animate={{ rotateY: 0 }} exit={{ rotateY: -90 }} transition={{ duration: 0.12 }}>
               <div className="w-full" style={{ background: `${roleLook(id).accent}44` }}>
-                <AnimeFace look={roleLook(id)} size={120} crop="face" className="h-auto w-full" />
+                <Face character={id} size={120} crop="face" className="h-auto w-full" />
               </div>
               <p className="px-1 font-display text-sm uppercase leading-tight text-paper">{name}</p>
               <p className="px-1 text-[10px] font-semibold leading-tight text-paper-faint">{move}</p>

@@ -22,3 +22,7 @@ app/plugins/*/android/build/
 .idea/
 *.iml
 app/screenshots/
+
+# Custom portraits stay local (see app/public/custom/README.md)
+app/public/custom/*
+!app/public/custom/README.md

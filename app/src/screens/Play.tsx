@@ -1,8 +1,8 @@
 import { character, type AbilityView } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimeFace, type Expression, type Gaze } from '../art/AnimeFace';
-import { publicLook, roleLook } from '../art/characters';
+import { Face } from '../art/Face';
+import { type Expression, type Gaze } from '../art/AnimeFace';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { color, motion as m } from '../design/tokens';
 import { burstAt, fx } from '../fx/fx';
@@ -172,7 +172,7 @@ export function Play() {
 
       {!me.alive && killerOfMe && (
         <div className="mb-3 flex items-center gap-3 border-[3px] border-crimson bg-ink-850 p-2">
-          <AnimeFace look={publicLook(killerOfMe.avatar)} size={44} crop="face" expression="sly" />
+          <Face avatar={killerOfMe.avatar} size={44} crop="face" expression="sly" />
           <p className="text-sm font-semibold text-paper-dim">
             <b className="text-paper">{killerOfMe.name}</b> winked you. Keep it to yourself.
           </p>
@@ -207,7 +207,7 @@ export function Play() {
               exit={{ opacity: 0, x: -30 }}
               transition={m.snap}
             >
-              <AnimeFace look={publicLook(target.avatar)} size={520} crop="eyes" expression={expr} gaze={gaze} blink={target.alive && !gesture} className="h-full w-full" />
+              <Face avatar={target.avatar} size={520} crop="eyes" expression={expr} gaze={gaze} blink={target.alive && !gesture} className="h-full w-full" />
             </motion.div>
           ) : (
             <motion.div key="none" className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -342,7 +342,7 @@ export function Play() {
                 aria-pressed={open}
               >
                 <div className="screentone absolute inset-0 opacity-40" />
-                <AnimeFace look={publicLook(p.avatar)} size={140} crop="face" expression={p.alive ? 'neutral' : 'dead'} gaze={open && contact ? 'you' : 'down'} ghost={!p.alive} blink={p.alive} className="relative h-auto w-full" />
+                <Face avatar={p.avatar} size={140} crop="face" expression={p.alive ? 'neutral' : 'dead'} gaze={open && contact ? 'you' : 'down'} ghost={!p.alive} blink={p.alive} className="relative h-auto w-full" />
                 <span className="absolute inset-x-0 bottom-0 truncate border-t-[3px] border-black bg-paper px-1.5 py-0.5 font-display text-sm uppercase text-ink-950">
                   {p.name}
                 </span>
@@ -399,7 +399,7 @@ export function Play() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
           >
-            <AnimeFace look={me.character ? roleLook(me.character, me.role) : publicLook(view.players.find((p) => p.id === me.id)?.avatar ?? 0)} size={86} crop="face" />
+            <Face {...(me.character ? { character: me.character, role: me.role } : { avatar: view.players.find((p) => p.id === me.id)?.avatar ?? 0 })} size={86} crop="face" />
             <div className="min-w-0">
               <p className="flex items-center gap-2 font-display text-2xl uppercase leading-none text-paper">
                 {me.roleName} <RoleBadge role={me.role} team={me.team!} size={26} />
@@ -465,7 +465,7 @@ function ArrestSpotlight() {
           </p>
           <motion.div className="relative my-5" animate={{ rotate: [-1.5, 1.5, -1.5] }} transition={{ duration: 0.16, repeat: Infinity }}>
             <div className="border-[4px] border-paper bg-ink-800" style={{ boxShadow: `6px 6px 0 0 ${color.spot.DEFAULT}` }}>
-              <AnimeFace look={publicLook(target.avatar)} size={190} crop="face" expression="shock" />
+              <Face avatar={target.avatar} size={190} crop="face" expression="shock" />
             </div>
             {/* Chains wrap the suspect. */}
             <svg className="pointer-events-none absolute -inset-6 h-[calc(100%+48px)] w-[calc(100%+48px)]" viewBox="0 0 100 100" preserveAspectRatio="none">
