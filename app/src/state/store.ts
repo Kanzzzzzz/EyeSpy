@@ -31,6 +31,8 @@ export interface Prefs {
   /** 'system' follows the phone's setting. */
   reducedMotion: 'system' | 'on' | 'off';
   seenPermissions: boolean;
+  /** Host-only test tools: play as any role, stage moments (Settings → Testing). */
+  adminTools: boolean;
 }
 
 /** How to reach a game again: a LAN address or (in browsers) another tab. */
@@ -53,6 +55,7 @@ const DEFAULT_PREFS: Prefs = {
   haptics: true,
   reducedMotion: 'system',
   seenPermissions: false,
+  adminTools: false,
 };
 
 interface State {
@@ -71,11 +74,16 @@ interface State {
   bots: Bot[];
   /** The panel you just opened, shown before the host confirms it. */
   pendingLook: string | null | undefined;
+  /** Admin test tools: show every role on the panels (host only). */
+  adminReveal: boolean;
+  botsPaused: boolean;
 
   init(): Promise<void>;
   go(screen: Screen): void;
   setPrefs(p: Partial<Prefs>): void;
   hostGame(): Promise<void>;
+  /** Admin test tools: host a practice game filled with bots. */
+  practice(): Promise<void>;
   resumeHosting(): Promise<void>;
   joinGame(target: JoinTarget): void;
   rejoinLast(): void;
@@ -209,6 +217,8 @@ export const useGame = create<State>((set, get) => {
     problem: null,
     bots: [],
     pendingLook: undefined,
+    adminReveal: false,
+    botsPaused: false,
 
     async init() {
       const prefs = await loadJson('eyespy.prefs', DEFAULT_PREFS);
@@ -251,6 +261,14 @@ export const useGame = create<State>((set, get) => {
       }
     },
 
+    async practice() {
+      await get().hostGame();
+      if (!get().hosting) return;
+      get().addBots(7);
+      // Faster cooldowns make testing quicker.
+      setTimeout(() => void get().send({ type: 'configure', settings: { winkCooldownMs: 5000, raiseCooldownMs: 3000, revealTimeoutMs: 15000 } }), 300);
+    },
+
     async resumeHosting() {
       const snapshot = get().resumable;
       if (!snapshot) return;
@@ -291,7 +309,7 @@ export const useGame = create<State>((set, get) => {
       await hosting?.stop();
       void keepAwake(false);
       void saveJson('eyespy.lastGame', null);
-      set({ client: null, snap: null, hosting: null, alerts: [], screen: 'home', bots: [], lastGame: null });
+      set({ client: null, snap: null, hosting: null, alerts: [], screen: 'home', bots: [], lastGame: null, adminReveal: false, botsPaused: false });
     },
 
     async send(action) {

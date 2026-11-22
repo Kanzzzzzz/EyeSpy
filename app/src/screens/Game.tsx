@@ -8,6 +8,7 @@ import { Play } from './Play';
 import { Hearing } from './Hearing';
 import { GameOver } from './GameOver';
 import { Alerts } from './Alerts';
+import { AdminPanel } from './AdminPanel';
 
 export function Game() {
   const snap = useGame((s) => s.snap);
@@ -54,6 +55,7 @@ export function Game() {
       </AnimatePresence>
       <Hearing />
       <Alerts />
+      <AdminPanel />
       <AnimatePresence>
         {snap && snap.status !== 'online' && (
           <motion.div

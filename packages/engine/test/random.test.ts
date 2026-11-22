@@ -167,10 +167,12 @@ function playRandomGame(seed: number): { ended: boolean; steps: number; state: G
 }
 
 describe('1,000 random games', () => {
-  it('never reach an illegal state', { timeout: 180_000 }, () => {
+  it('never reach an illegal state', { timeout: 180_000 }, async () => {
     let ended = 0;
     const reasons: Record<string, number> = {};
     for (let seed = 1; seed <= 1000; seed++) {
+      // Yield now and then so the test worker stays responsive.
+      if (seed % 20 === 0) await new Promise((r) => setTimeout(r, 0));
       const r = playRandomGame(seed);
       if (r.ended) {
         ended++;

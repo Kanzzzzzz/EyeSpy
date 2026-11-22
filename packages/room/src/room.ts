@@ -297,6 +297,19 @@ export class Room {
     return r;
   }
 
+  /**
+   * Test mode only: apply a host-side change that bypasses the rules (for
+   * example adminSetRole), then persist and push the new views. Never wired
+   * to the protocol, so phones can't call it.
+   */
+  admin(change: (state: GameState) => GameState): void {
+    const next = change(this.state);
+    if (next === this.state) return;
+    this.state = next;
+    this.persist();
+    this.broadcast();
+  }
+
   private takeLookToken(playerId: PlayerId): boolean {
     const now = this.now();
     const b = this.lookBudget.get(playerId) ?? { tokens: LOOKS_PER_SECOND, at: now };

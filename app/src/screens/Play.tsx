@@ -7,6 +7,8 @@ import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { color, motion as m } from '../design/tokens';
 import { burstAt, fx } from '../fx/fx';
 import { useGame } from '../state/store';
+import { admin } from '../state/admin';
+import { getRole } from '@eyespy/engine';
 import { Button, EyeIcon, HoldButton, Screen, Sheet, useCountdown } from '../ui/kit';
 
 /** A stable "looking away" direction per player (purely cosmetic). */
@@ -58,6 +60,7 @@ export function Play() {
   const pendingLook = useGame((s) => s.pendingLook);
   const send = useGame((s) => s.send);
   const look = useGame((s) => s.look);
+  const adminReveal = useGame((s) => s.adminReveal);
   const reduce = useReducedMotion();
   const me = view.me!;
   const [peek, setPeek] = useState(false);
@@ -343,6 +346,11 @@ export function Play() {
                   <span className="absolute right-1 top-1 h-3.5 w-3.5 border-2 border-black bg-warn" aria-label="Reconnecting" />
                 )}
                 {p.role && <span className="absolute right-1 top-1"><TeamIcon team={p.team!} size={14} /></span>}
+                {adminReveal && !p.role && admin.roleOf(p.id) && (
+                  <span className="absolute right-0.5 top-0.5">
+                    <RoleBadge role={admin.roleOf(p.id)!} team={getRole(admin.roleOf(p.id)!).team} size={30} />
+                  </span>
+                )}
               </motion.button>
             </li>
           );

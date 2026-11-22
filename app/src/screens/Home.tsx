@@ -18,6 +18,7 @@ export function Home() {
   const lastGame = useGame((s) => s.lastGame);
   const rejoinLast = useGame((s) => s.rejoinLast);
   const busy = useGame((s) => s.busy);
+  const practice = useGame((s) => s.practice);
   const problem = useGame((s) => s.problem);
   const [picking, setPicking] = useState(false);
 
@@ -122,6 +123,11 @@ export function Home() {
             Join
           </Button>
         </div>
+        {prefs.adminTools && (
+          <Button variant="secondary" onClick={() => void practice()} disabled={!nameOk || busy}>
+            Practice: test roles with bots
+          </Button>
+        )}
         {!nameOk && <p className="text-center text-sm font-semibold text-paper-faint">Pick a name to play.</p>}
       </div>
     </Screen>

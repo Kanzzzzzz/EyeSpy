@@ -79,3 +79,18 @@ finisher, a silent blade, a puppet queen, and so on for every role.
 **Still needs real phones:** eye contact over the hotspot feels instant in the
 browser; it should be checked on 6+ phones (task 2.5), along with the effects'
 frame rate on a mid-range Android phone.
+
+## Admin test tools
+
+Settings → Testing → **Admin test tools** (off by default). When this phone
+hosts: a **Practice** game on the home screen (you plus 7 bots, faster
+cooldowns), and an **Admin** button in game. In the panel you can:
+- play as any of the 14 roles
+- unlock abilities and reset cooldowns, and lift the Shush lock
+- call a hearing, and make the bots vote someone out
+- pause the bots and show every role on the panels
+- make any bot lock eyes with you, look at you, wink you or raise an eyebrow at you
+
+The tools act only on the host's own room (`Room.admin` and
+`packages/engine/src/admin.ts`). They are not in the protocol, so guests'
+phones can't use them.

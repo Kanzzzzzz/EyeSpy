@@ -35,6 +35,15 @@ export function Settings() {
           <p className="mt-2 text-sm text-paper-faint">"Reduce" swaps big animations for simple fades.</p>
         </Card>
         <Card>
+          <Label>Testing</Label>
+          <Toggle
+            label="Admin test tools"
+            hint="When you host: a Practice game on the home screen, and an Admin panel to play as any role and stage winks, raises and hearings."
+            checked={prefs.adminTools}
+            onChange={(v) => setPrefs({ adminTools: v })}
+          />
+        </Card>
+        <Card>
           <Label>Privacy</Label>
           <p className="text-sm text-paper-dim">
             EyeSpy has no accounts, ads or analytics, and never uses the internet. Your name and character are stored on this phone only and shared only with the phones in your game.
