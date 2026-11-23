@@ -2,13 +2,14 @@ import { character, type AbilityView } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Face } from '../art/Face';
-import { type Expression, type Gaze } from '../art/AnimeFace';
+import { type Expression, type Gaze } from '../art/faceTypes';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { color, motion as m } from '../design/tokens';
 import { burstAt, fx } from '../fx/fx';
 import { useGame } from '../state/store';
 import { admin } from '../state/admin';
 import { getRole } from '@eyespy/engine';
+import { fitGrid, useBoxSize } from '../ui/fitGrid';
 import { Button, EyeIcon, HoldButton, Screen, Sheet, useCountdown } from '../ui/kit';
 
 /** A stable "looking away" direction per player (purely cosmetic). */
@@ -17,6 +18,10 @@ function awayGaze(id: string): Gaze {
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0;
   return h % 2 ? 'left' : 'right';
 }
+
+/** Portrait height / width of a player tile (the 'face' crop). */
+const TILE_ASPECT = 160 / 132;
+const TILE_GAP = 8;
 
 /** Slightly uneven manga panel corners, stable per index. */
 function panelClip(i: number): string {
@@ -73,6 +78,10 @@ export function Play() {
   const contact = me.eyeContact && pendingLook === undefined && !!target;
   const others = view.players.filter((p) => p.id !== me.id);
   const aliveCount = view.players.filter((p) => p.alive).length;
+  // Everyone else's panel is sized to the space left on screen, so a full room needs no scrolling.
+  const [gridBox, gridSize] = useBoxSize<HTMLDivElement>();
+  const fit = gridSize.w > 0 ? fitGrid(gridSize.w, gridSize.h, others.length, { gap: TILE_GAP, aspect: TILE_ASPECT, bar: 0, minTile: 46, maxTile: 150 }) : { cols: 3, rows: 0, tile: 100, fits: true };
+  const compact = fit.tile < 96;
 
   // Brief expressions in the open panel, from gestures this phone witnessed.
   const [gesture, setGesture] = useState<{ id: string; expr: Expression } | null>(null);
@@ -187,11 +196,13 @@ export function Play() {
       {/* The open panel: their eyes, up close. */}
       <div
         ref={focusRef}
-        className="relative overflow-hidden border-[4px] bg-ink-900"
+        className="relative mx-auto w-full shrink-0 overflow-hidden border-[4px] bg-ink-900"
         style={{
           borderColor: contact ? color.cyan.DEFAULT : color.paper.DEFAULT,
           boxShadow: contact ? `0 0 0 3px #000, 0 0 34px ${color.cyan.glow}` : `6px 6px 0 0 ${color.crimson.DEFAULT}`,
           aspectRatio: '112 / 62',
+          // Never taller than a share of the screen, so short phones keep room for the players below.
+          maxWidth: `calc(${others.length > 10 ? 25 : 30}dvh * 112 / 62)`,
         }}
         aria-live="polite"
         aria-label={target ? `${target.name}: ${!target.alive ? 'out of the game' : contact ? 'looking at you' : 'looking away'}` : 'No panel open'}
@@ -321,7 +332,8 @@ export function Play() {
       </div>
 
       {/* Everyone else, eyes lowered. Tap to look. */}
-      <ul className="mt-4 grid grid-cols-3 gap-2.5 pb-4">
+      <div ref={gridBox} className="relative mt-3 min-h-[88px] flex-1">
+      <ul className={`absolute inset-0 grid content-start justify-center ${fit.fits ? '' : 'overflow-y-auto'}`} style={{ gap: TILE_GAP, gridTemplateColumns: `repeat(${fit.cols}, ${fit.tile}px)`, paddingRight: 1 }}>
         {others.map((p, i) => {
           const open = p.id === lookingAt;
           return (
@@ -343,11 +355,11 @@ export function Play() {
               >
                 <div className="screentone absolute inset-0 opacity-40" />
                 <Face avatar={p.avatar} size={140} crop="face" expression={p.alive ? 'neutral' : 'dead'} gaze={open && contact ? 'you' : 'down'} ghost={!p.alive} blink={p.alive} className="relative h-auto w-full" />
-                <span className="absolute inset-x-0 bottom-0 truncate border-t-[3px] border-black bg-paper px-1.5 py-0.5 font-display text-sm uppercase text-ink-950">
+                <span className={`absolute inset-x-0 bottom-0 truncate border-t-[3px] border-black bg-paper font-display uppercase text-ink-950 ${compact ? 'px-1 text-[11px] leading-[15px]' : 'px-1.5 py-0.5 text-sm'}`}>
                   {p.name}
                 </span>
                 {!p.alive && (
-                  <span className="absolute left-1 top-1 -rotate-12 border-2 border-crimson px-1 font-display text-xs uppercase text-crimson">
+                  <span className={`absolute left-1 top-1 -rotate-12 border-2 border-crimson px-1 font-display uppercase text-crimson ${compact ? 'text-[10px] leading-3' : 'text-xs'}`}>
                     {p.votedOut ? 'Voted out' : 'Out'}
                   </span>
                 )}
@@ -365,6 +377,7 @@ export function Play() {
           );
         })}
       </ul>
+      </div>
 
       <Sheet open={emojiOpen} onClose={() => setEmojiOpen(false)}>
         {ghostAbilities[0]?.payload && (
@@ -399,7 +412,7 @@ export function Play() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
           >
-            <Face {...(me.character ? { character: me.character, role: me.role } : { avatar: view.players.find((p) => p.id === me.id)?.avatar ?? 0 })} size={86} crop="face" />
+            <Face avatar={view.players.find((p) => p.id === me.id)?.avatar ?? 0} size={86} crop="face" />
             <div className="min-w-0">
               <p className="flex items-center gap-2 font-display text-2xl uppercase leading-none text-paper">
                 {me.roleName} <RoleBadge role={me.role} team={me.team!} size={26} />

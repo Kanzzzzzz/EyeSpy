@@ -43,6 +43,12 @@ export const color = {
   danger: '#FF3B5C',
 } as const;
 
+/** A token colour with transparency, for gradients and glows: alpha(color.spot.DEFAULT, 0.4). */
+export function alpha(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1, 7), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 export const font = {
   display: '"Anton", "Impact", "Haettenschweiler", "Arial Narrow Bold", sans-serif',
   body: '"Outfit Variable", "Outfit", system-ui, sans-serif',

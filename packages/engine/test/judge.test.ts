@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROSTER, viewFor } from '../src';
+import { DEFAULT_SETTINGS, HEARING_INTRO_MS, ROSTER, viewFor } from '../src';
 import { lobby, ofType, rigged } from './helpers';
 
 // p0 Killer, p1 Sheriff, p2 Judge, p3 Snitch, p4/p5 Lovers, p6..p8 Citizens
@@ -11,6 +11,9 @@ function unlock(g: ReturnType<typeof rigged>, targets = ['p6', 'p7', 'p8'], judg
     g.advance(10_000);
   }
 }
+
+/** The whole hearing: the intro cutscene, then the voting time. */
+const HEARING = HEARING_INTRO_MS + DEFAULT_SETTINGS.hearingMs;
 
 function callHearing(g: ReturnType<typeof rigged>) {
   unlock(g);
@@ -66,15 +69,43 @@ describe('Judge', () => {
     expect(viewFor(g.state, 'p0').players.find((p) => p.id === 'p8')!.role).toBe('citizen');
   });
 
-  it('keeps every ballot secret: only who voted, and the final tally', () => {
+  it('gives everyone 30 seconds to vote, after the intro cutscene', () => {
+    expect(DEFAULT_SETTINGS.hearingMs).toBe(30_000);
+    const g = rigged([...NINE]);
+    callHearing(g);
+    const h = viewFor(g.state, 'p6').hearing!;
+    expect(h.opensAt - g.state.hearing!.startedAt).toBe(HEARING_INTRO_MS);
+    expect(h.endsAt - h.opensAt).toBe(30_000);
+  });
+
+  it('shows everyone how many votes each player has, live', () => {
+    const g = rigged([...NINE]);
+    callHearing(g);
+    expect(viewFor(g.state, 'p6').hearing!.tally).toEqual({});
+    g.vote('p3', 'p0');
+    g.vote('p4', 'p0');
+    g.vote('p5', 'p6');
+    for (const p of g.state.players) expect(viewFor(g.state, p.id).hearing!.tally).toEqual({ p0: 2, p6: 1 });
+    // Changing a vote moves it.
+    g.vote('p4', 'p6');
+    expect(viewFor(g.state, 'p0').hearing!.tally).toEqual({ p0: 1, p6: 2 });
+  });
+
+  it('never shows who voted for whom: only who voted, the counts and your own vote', () => {
     const g = rigged([...NINE]);
     callHearing(g);
     g.vote('p3', 'p0');
+    g.vote('p4', 'p6');
     const v = viewFor(g.state, 'p6');
-    expect(v.hearing!.voted).toEqual(['p3']);
+    expect(v.hearing!.voted.sort()).toEqual(['p3', 'p4']);
     expect(v.hearing!.myVote).toBeNull();
     expect(viewFor(g.state, 'p3').hearing!.myVote).toBe('p0');
-    expect(JSON.stringify(v)).not.toContain('"votes"');
+    expect(viewFor(g.state, 'p4').hearing!.myVote).toBe('p6');
+    const json = JSON.stringify(v);
+    expect(json).not.toContain('"votes"');
+    // No voter is ever paired with their pick.
+    expect(json).not.toMatch(/"p3":"p0"|"p4":"p6"/);
+    expect(Object.keys(v.hearing!).sort()).toEqual(['endsAt', 'myVote', 'opensAt', 'tally', 'voted']);
   });
 
   it('a tie eliminates nobody', () => {
@@ -82,7 +113,7 @@ describe('Judge', () => {
     callHearing(g);
     g.vote('p0', 'p6');
     g.vote('p1', 'p7');
-    g.advance(20_000);
+    g.advance(HEARING);
     const result = g.state.log.find((e) => e.event.type === 'HearingResult')!.event;
     expect(result).toMatchObject({ eliminatedId: null });
     expect(g.state.players.every((p) => p.alive)).toBe(true);
@@ -93,7 +124,7 @@ describe('Judge', () => {
     const g = rigged([...NINE]);
     callHearing(g);
     g.vote('p3', 'p6');
-    g.advance(19_999);
+    g.advance(HEARING - 1);
     expect(g.state.phase).toBe('hearing');
     g.advance(1);
     expect(g.player('p6').alive).toBe(false);
@@ -103,7 +134,7 @@ describe('Judge', () => {
     const g = rigged([...NINE]);
     callHearing(g);
     g.vote('p0', 'p1');
-    g.advance(20_000);
+    g.advance(HEARING);
     expect(g.state.result).toMatchObject({ winner: 'killers', reason: 'sheriffVotedOut' });
   });
 
@@ -111,7 +142,7 @@ describe('Judge', () => {
     const g = rigged([...NINE]);
     callHearing(g);
     g.vote('p3', 'p0');
-    g.advance(20_000);
+    g.advance(HEARING);
     expect(g.state.result).toMatchObject({ winner: 'town', reason: 'allKillersCaught' });
     expect(g.state.result!.winners).toContain('p2');
   });
@@ -120,7 +151,7 @@ describe('Judge', () => {
     const g = rigged([...NINE]);
     callHearing(g);
     g.vote('p3', 'p4');
-    g.advance(20_000);
+    g.advance(HEARING);
     expect(g.player('p4').alive).toBe(false);
     expect(g.player('p5').alive).toBe(false);
   });
@@ -131,7 +162,7 @@ describe('Judge', () => {
     g.wink('p0', 'p6');
     g.advance(1_000);
     g.act('p2', { type: 'useAbility', abilityId: 'hearing' });
-    g.advance(20_000);
+    g.advance(HEARING);
     expect(g.player('p6').alive).toBe(true);
     g.advance(2_000);
     expect(g.player('p6').alive).toBe(false);

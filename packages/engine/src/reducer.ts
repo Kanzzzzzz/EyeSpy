@@ -22,7 +22,7 @@ import {
   type Team,
   type WinReason,
 } from './types';
-import { checkRoleMix, enabledSpecialRoles, nextRandom, SETTING_LIMITS, suggestRoles } from './state';
+import { checkRoleMix, enabledSpecialRoles, HEARING_INTRO_MS, nextRandom, SETTING_LIMITS, suggestRoles } from './state';
 import { checkWin } from './win';
 
 class Rejection extends Error {
@@ -196,7 +196,8 @@ class Engine implements RoleContext {
     const s = this.state;
     if (s.phase !== 'playing') reject('wrongPhase', 'A hearing can only be called during play.');
     s.phase = 'hearing';
-    s.hearing = { judgeId, startedAt: this.now, endsAt: this.now + s.settings.hearingMs, votes: {} };
+    const opensAt = this.now + HEARING_INTRO_MS;
+    s.hearing = { judgeId, startedAt: this.now, opensAt, endsAt: opensAt + s.settings.hearingMs, votes: {} };
     this.emit({ type: 'HearingStarted', endsAt: s.hearing.endsAt, judgeCharacter: this.roleOf(judgeId).character }, 'all');
   }
 

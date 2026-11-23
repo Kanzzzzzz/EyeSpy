@@ -1,5 +1,4 @@
-import { getRole, ROSTER, type RoleId } from '@eyespy/engine';
-import { Face } from '../art/Face';
+import { getRole, type RoleId } from '@eyespy/engine';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { useGame } from '../state/store';
 import { Card, Label, Screen, TopBar } from '../ui/kit';
@@ -20,13 +19,6 @@ function RoleRow({ id }: { id: RoleId }) {
           </span>
         </p>
         <p className="mt-1 text-sm text-paper-dim">{r.summary}</p>
-        <div className="mt-1.5 flex gap-1">
-          {ROSTER[id].map((c) => (
-            <span key={c.id} className="border-2 border-black bg-ink-800" title={`${c.name}, ${c.title}`}>
-              <Face character={c.id} size={34} crop="face" />
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -64,7 +56,7 @@ export function HowToPlay() {
         <Card>
           <Label jp="審判">The hearing</Label>
           <p className="text-sm text-paper-dim">
-            The <b className="text-paper">Judge</b> (games of 7+) can call one hearing after 3 raises. Play stops and everyone alive votes in secret. The most votes is out; a tie frees everyone. Vote out a Sheriff and the town loses. Vote out the last Killer and the town wins.
+            The <b className="text-paper">Judge</b> (games of 7+) can call one hearing after 3 raises. Play stops and everyone alive gets 30 seconds to vote. You see how many votes each player has, never who cast them. The most votes is out; a tie frees everyone. Vote out a Sheriff and the town loses. Vote out the last Killer and the town wins.
           </p>
         </Card>
         <Card>

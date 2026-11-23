@@ -62,8 +62,8 @@ or easy to change in `packages/engine/src/state.ts`.
 | Manga-panel look mode: one panel open at a time | Done (engine `look` action, Play screen) |
 | Real eye contact for winks and raises; witnesses see winks and raises; "eyes on you" counter | Done, tested (`packages/engine/test/eyes.test.ts`) |
 | Only the Shush, Snitch and Judge can raise | Done, tested |
-| Judge role (7+ players): one hearing, 20 s secret vote, ties free everyone, Sheriff voted out loses, last Killer voted out wins | Done, tested (`judge.test.ts`); hearing screen in the app |
-| 42 original secret role characters (3 per role, 14 roles) + 12 public characters, drawn in code | Done (`app/src/art`); picked privately on the reveal screen |
+| Judge role (7+ players): one hearing, a 30 s vote after the intro cutscene with live counts per player (never who voted for whom), ties free everyone, Sheriff voted out loses, last Killer voted out wins | Done, tested (`judge.test.ts`); hearing screen in the app |
+| Secret role characters (names and finisher moves) + 12 public characters | Superseded in Version 4: the drawn role faces are gone, see below |
 | Killer finishers: realm (domain-style), slash, shadow; arrest chains; hearing gavel | Done |
 | Anime UI: tokens, Anton display type, sakuga effects layer (impact, slash, smoke, splash, sparkle, speed lines, manga lettering, shake, flash), springy controls | Done; switches off with reduced motion |
 | Anime sound design and taiko/koto tension loop, synthesised live | Done |
@@ -105,8 +105,27 @@ phones can't use them.
 - Drawing kit upgraded: cel shading, layered irises, lid creases, winged
   lashes, gradient hair with highlights and strands. All 12 public faces redrawn.
 - Motion-graphics finishers on a frame-timed canvas engine (`app/src/motion`):
-  "Thousand-Petal Abattoir" (Shuten's kill, 4.2 s) and "Court of the
-  Unblinking Eye" (the hearing intro, 3.2 s, on every phone).
+  "Thousand-Petal Abattoir" (Shuten's kill, 4.2 s) and "Domain Expansion:
+  Deadly Sentencing" (the hearing intro, 4.4 s, on every phone; a real-time
+  WebGL2 scene where a dark courtroom assembles itself under striking
+  spotlights and the gavel raps three times, with a 2D fallback and a failsafe
+  timer; a nod to Jujutsu Kaisen credited in Settings).
 - Sound: 27 recorded effects from 効果音ラボ, layered with sub-bass and a
   generated reverb into cues; the music is now recorded taiko over a low pad.
   The 8-bit synth is gone.
+
+## Version 4: your own face in the kill, and screens that fit
+
+- The drawn role characters (Shuten, Rei Tenbin) and the whole drawing kit
+  (`AnimeFace`, `characters.ts`) are gone. Killer and Judge keep their names
+  and move titles, but every face on screen is a player's painted lobby portrait.
+- The Killer's finisher is now played on the victim's own portrait: it is
+  dragged into the realm, trembles, and one slash through the middle of the
+  screen splits it in two (`app/src/motion/SlashedFace.tsx`); the other cuts
+  fan out over it. The lighter slash and shadow finishers use the same cut.
+- The Play screen sizes every player's panel to the space left on screen
+  (`app/src/ui/fitGrid.ts`), so a full room of up to 20 fits without scrolling,
+  and the open eye panel is capped to a share of the screen height. The hearing
+  docket goes to two slimmer columns when more than 6 players are alive.
+- Custom image slots now cover the 12 lobby faces only (`avatar-0` .. `avatar-11`);
+  the `char-killer` and `char-judge` slots went with the role faces.

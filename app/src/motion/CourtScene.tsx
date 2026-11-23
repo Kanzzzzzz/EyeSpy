@@ -1,245 +1,193 @@
 import { useEffect, useRef } from 'react';
-import { Face } from '../art/Face';
 import { play } from '../audio/sounds';
-import { ease, fitCanvas, lerp, rng, runScene, seg, slamText } from './engine';
+import { color, font } from '../design/tokens';
+import { CourtRenderer } from './court/CourtRenderer';
+import { COURT_BEATS, COURT_DURATION, courtShot } from './court/timeline';
+import { clamp, ease, fitCanvas, runScene, seg, slamText } from './engine';
 
 /**
- * "Realm Unfolded: Court of the Unblinking Eye", the Judge's hearing intro,
- * played on every phone. An original motion-graphics piece:
+ * "Domain Expansion: Deadly Sentencing", the Judge's hearing intro (a nod to
+ * Jujutsu Kaisen; credited in Settings and CREDITS.md), played on every phone.
+ * A real-time WebGL2 scene: ink floods the screen, a courtroom assembles
+ * itself out of the dark under striking spotlights, and the gavel falls on an
+ * empty judge's chair.
  *
- *  0.00  lights cut; a vertical slit of gold light opens into a giant eye
- *  0.60  the courtroom rushes in: perspective floor, pillars rising
- *  1.00  gold scales lower and swing (temple gong)
- *  1.30  the Magistrate slides in; title slams
- *  1.90  the gavel falls: shockwave, impact frame (knock + boom)
- *  3.20  done; the voting screen takes over
+ * It always ends when voting opens: given `opensAt` (and `now`, the shared
+ * clock), a phone that starts late (a slow warm-up, a reconnect) joins the
+ * clip part-way, or skips it if almost nothing is left. It can never strand
+ * a player: a failsafe timer ends it even if the phone stalls. `freezeAt`
+ * holds one moment and `tier` holds a quality tier (development previews).
  */
-export const COURT_DURATION = 3.2;
-
-export function CourtScene({ characterId, onDone }: { characterId: string | null; onDone: () => void }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const portrait = useRef<HTMLDivElement>(null);
+export function CourtScene({ onDone, freezeAt, tier, opensAt, now }: { onDone: () => void; freezeAt?: number; tier?: number; opensAt?: number; now?: () => number }) {
+  const finished = useRef(false);
+  const finish = useRef(onDone);
+  finish.current = () => {
+    if (finished.current) return;
+    finished.current = true;
+    onDone();
+  };
 
   useEffect(() => {
-    const { ctx, w, h } = fitCanvas(canvas.current!);
-    const cx = w / 2;
-    const horizon = h * 0.36;
-    const r = rng(11);
-    const motes = Array.from({ length: 70 }, () => ({ x: r() * w, y: r() * h, s: 0.6 + r() * 2, v: 8 + r() * 20, ph: r() * 6 }));
-    const gold = '#FFC83A';
-    play('court');
+    if (freezeAt !== undefined) return;
+    const remaining = opensAt !== undefined && now ? Math.max(0, (opensAt - now()) / 1000) : COURT_DURATION;
+    const limit = Math.min(COURT_DURATION, remaining) + 1.5;
+    const timer = setTimeout(() => finish.current(), limit * 1000);
+    return () => clearTimeout(timer);
+  }, [freezeAt, opensAt, now]);
 
-    const stop = runScene(
-      COURT_DURATION,
-      (t) => {
-        const shake = t > 1.9 && t < 2.3 ? (1 - seg(t, 1.9, 2.3)) * 12 : 0;
-        const sx = Math.sin(t * 97) * shake;
-        const sy = Math.cos(t * 89) * shake;
-        ctx.clearRect(0, 0, w, h);
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.fillStyle = '#030208';
-        ctx.fillRect(-20, -20, w + 40, h + 40);
+  const done = () => finish.current();
+  return <CourtSceneGL onDone={done} freezeAt={freezeAt} tier={tier} opensAt={opensAt} now={now} />;
+}
 
-        // The courtroom: perspective floor lines rushing in, pillars rising.
-        const build = ease.outExpo(seg(t, 0.6, 1.4));
-        if (build > 0) {
-          const bg = ctx.createLinearGradient(0, 0, 0, h);
-          bg.addColorStop(0, '#0B0A1C');
-          bg.addColorStop(0.36, '#1B1636');
-          bg.addColorStop(1, '#07060F');
-          ctx.globalAlpha = build;
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = 'rgba(255, 200, 58, 0.35)';
-          ctx.lineWidth = 1.2;
-          for (let i = -8; i <= 8; i++) {
-            ctx.beginPath();
-            ctx.moveTo(cx + i * 6, horizon);
-            ctx.lineTo(cx + i * w * 0.25 * build, h);
-            ctx.stroke();
-          }
-          for (let j = 1; j < 9; j++) {
-            const y = horizon + (h - horizon) * Math.pow(j / 9, 1.8) * build + ((t * 40) % 20) * (1 - build);
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
-          }
-          // Pillars on both sides.
-          for (let i = 0; i < 3; i++) {
-            const rise = ease.outBack(seg(t, 0.7 + i * 0.08, 1.3 + i * 0.08));
-            const pw = w * (0.07 - i * 0.012);
-            const ph = h * (0.75 - i * 0.12) * rise;
-            for (const side of [-1, 1]) {
-              const x = cx + side * w * (0.46 - i * 0.12) - pw / 2;
-              const pg = ctx.createLinearGradient(x, 0, x + pw, 0);
-              pg.addColorStop(0, '#2A2448');
-              pg.addColorStop(0.5, '#5A4E8C');
-              pg.addColorStop(1, '#1A1630');
-              ctx.fillStyle = pg;
-              ctx.fillRect(x, h - ph - h * 0.05 * i, pw, ph);
-              ctx.fillStyle = gold;
-              ctx.fillRect(x - 3, h - ph - h * 0.05 * i, pw + 6, 5);
-            }
-          }
-          ctx.globalAlpha = 1;
-        }
+/** Skip the clip entirely if less than this is left of it. */
+const MIN_CLIP_S = 0.8;
 
-        // The Unblinking Eye: a slit of light that opens, then watches from above.
-        const open = ease.outExpo(seg(t, 0.05, 0.6));
-        const eyeY = lerp(h * 0.42, h * 0.17, ease.inOutCubic(seg(t, 0.55, 1.2)));
-        const eyeW = lerp(w * 0.9, w * 0.42, ease.inOutCubic(seg(t, 0.55, 1.2)));
-        const eyeH = eyeW * 0.32 * open;
-        if (open > 0) {
-          ctx.save();
-          ctx.shadowColor = gold;
-          ctx.shadowBlur = 40;
-          ctx.fillStyle = '#FFF4D6';
-          ctx.beginPath();
-          ctx.moveTo(cx - eyeW / 2, eyeY);
-          ctx.quadraticCurveTo(cx, eyeY - eyeH * 1.6, cx + eyeW / 2, eyeY);
-          ctx.quadraticCurveTo(cx, eyeY + eyeH * 1.6, cx - eyeW / 2, eyeY);
-          ctx.fill();
-          ctx.restore();
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(cx - eyeW / 2, eyeY);
-          ctx.quadraticCurveTo(cx, eyeY - eyeH * 1.6, cx + eyeW / 2, eyeY);
-          ctx.quadraticCurveTo(cx, eyeY + eyeH * 1.6, cx - eyeW / 2, eyeY);
-          ctx.clip();
-          const ir = eyeW * 0.17;
-          const ig = ctx.createRadialGradient(cx, eyeY - ir * 0.2, ir * 0.1, cx, eyeY, ir);
-          ig.addColorStop(0, '#FFE08A');
-          ig.addColorStop(0.6, gold);
-          ig.addColorStop(1, '#7A4A00');
-          ctx.fillStyle = ig;
-          ctx.beginPath();
-          ctx.arc(cx, eyeY, ir, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#05030A';
-          ctx.beginPath();
-          ctx.ellipse(cx, eyeY, ir * 0.18, ir * 0.7, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
+function CourtSceneGL({ onDone, freezeAt, tier, opensAt, now }: { onDone: () => void; freezeAt?: number; tier?: number; opensAt?: number; now?: () => number }) {
+  const glHost = useRef<HTMLDivElement>(null);
+  const textCanvas = useRef<HTMLCanvasElement>(null);
+  // Previews may move the held moment without remounting.
+  const held = useRef(freezeAt);
+  held.current = freezeAt;
 
-        // Gold scales lower on a chain and swing to rest.
-        const lower = ease.outCubic(seg(t, 1.0, 1.5));
-        if (lower > 0) {
-          const pivotY = lerp(-60, h * 0.3, lower);
-          const tilt = 0.35 * ease.swing(seg(t, 1.0, 3.2), 1.6, 3);
-          ctx.save();
-          ctx.translate(cx, pivotY);
-          ctx.strokeStyle = gold;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(0, -h);
-          ctx.lineTo(0, 0);
-          ctx.stroke();
-          ctx.rotate(tilt);
-          ctx.lineWidth = 5;
-          ctx.beginPath();
-          ctx.moveTo(-w * 0.28, 0);
-          ctx.lineTo(w * 0.28, 0);
-          ctx.stroke();
-          for (const side of [-1, 1]) {
-            ctx.save();
-            ctx.translate(side * w * 0.28, 0);
-            ctx.rotate(-tilt);
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-24, 50);
-            ctx.moveTo(0, 0);
-            ctx.lineTo(24, 50);
-            ctx.stroke();
-            ctx.fillStyle = gold;
-            ctx.beginPath();
-            ctx.ellipse(0, 52, 30, 8, 0, 0, Math.PI);
-            ctx.fill();
-            ctx.restore();
-          }
-          ctx.restore();
-        }
-
-        // Dust in the light.
-        for (const m of motes) {
-          ctx.fillStyle = `rgba(255, 224, 138, ${0.5 * build})`;
-          ctx.fillRect(m.x + Math.sin(t + m.ph) * 8, (m.y - t * m.v + h) % h, m.s, m.s);
-        }
-
-        // The gavel falls.
-        const fall = seg(t, 1.6, 1.9);
-        if (fall > 0 && t < 2.6) {
-          const ang = lerp(-1.2, 0.05, ease.inExpo(fall));
-          ctx.save();
-          ctx.translate(cx + w * 0.22, h * 0.6);
-          ctx.rotate(ang);
-          ctx.fillStyle = '#6B3A1E';
-          ctx.fillRect(-4, -90, 8, 90);
-          ctx.fillStyle = '#8A4A26';
-          ctx.fillRect(-34, -110, 68, 30);
-          ctx.fillStyle = gold;
-          ctx.fillRect(-36, -100, 6, 10);
-          ctx.fillRect(30, -100, 6, 10);
-          ctx.restore();
-        }
-        if (t > 1.9) {
-          const k = seg(t, 1.9, 2.6);
-          ctx.strokeStyle = `rgba(255, 224, 138, ${1 - k})`;
-          ctx.lineWidth = 6 * (1 - k);
-          ctx.beginPath();
-          ctx.ellipse(cx + w * 0.2, h * 0.6, k * w * 0.8, k * w * 0.2, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
-
-        slamText(ctx, 'COURT OF THE', cx, h * 0.8, Math.min(34, w * 0.085), seg(t, 1.35, 1.65), '#F7F2E8', '#7A4A00');
-        slamText(ctx, 'UNBLINKING EYE', cx, h * 0.88, Math.min(50, w * 0.115), seg(t, 1.5, 1.8), '#FFFFFF', gold);
-        ctx.save();
-        ctx.globalAlpha = seg(t, 1.7, 2.0);
-        ctx.font = `900 ${Math.min(18, w * 0.045)}px "Hiragino Sans","Noto Sans CJK JP","Noto Sans JP",sans-serif`;
+  useEffect(() => {
+    // A fresh canvas per mount: a disposed renderer loses its context for good.
+    const canvas = document.createElement('canvas');
+    canvas.className = 'absolute inset-0 h-full w-full';
+    glHost.current!.appendChild(canvas);
+    let made: CourtRenderer | null = null;
+    try {
+      made = new CourtRenderer(canvas);
+      // Compile, then time a few hidden frames and pick this device's quality tier
+      // before the clock starts. Slow devices get the lightest tier, never no intro.
+      if (tier !== undefined) made.forceTier(tier);
+      else made.warmUp();
+    } catch (err) {
+      // Only a real failure (no WebGL2, a driver error) skips the intro.
+      console.warn('[court] WebGL scene unavailable, skipping intro', err);
+      // In the development preview, say why on screen instead of a blank page.
+      if (freezeAt !== undefined && textCanvas.current) {
+        const { ctx, w, h } = fitCanvas(textCanvas.current);
+        ctx.fillStyle = color.paper.DEFAULT;
+        ctx.font = `14px ${font.body}`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#FFE08A';
-        ctx.fillText('審 判 の 間', cx, h * 0.74);
-        ctx.restore();
+        ctx.fillText(`3D intro failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 120), w / 2, h / 2);
+      }
+      try {
+        made?.dispose();
+      } catch {
+        // already gone
+      }
+      canvas.remove();
+      if (freezeAt === undefined) onDone();
+      return;
+    }
+    const renderer = made;
 
-        // Impact frames: the lights cutting out, and the gavel.
-        const flash = Math.max(t < 0.1 ? 1 - seg(t, 0, 0.1) : 0, t > 1.9 ? 1 - seg(t, 1.9, 2.1) : 0);
-        if (flash > 0) {
-          ctx.fillStyle = `rgba(255, 244, 214, ${flash})`;
-          ctx.fillRect(0, 0, w, h);
-        }
-        // Fade out into the voting screen.
-        const out = seg(t, 2.7, 3.2);
-        if (out > 0) {
-          ctx.fillStyle = `rgba(3, 2, 8, ${out})`;
-          ctx.fillRect(0, 0, w, h);
-        }
+    const { ctx, w, h } = fitCanvas(textCanvas.current!);
+    const lost = (e: Event) => {
+      e.preventDefault();
+      if (freezeAt === undefined) onDone();
+    };
+    canvas.addEventListener('webglcontextlost', lost);
 
-        const p = portrait.current;
-        if (p) {
-          const slide = ease.outExpo(seg(t, 1.25, 1.7));
-          p.style.opacity = String(slide * (1 - out));
-          p.style.transform = `translate(${lerp(-w * 0.6, 0, slide) + sx}px, ${sy}px)`;
+    let stop: () => void;
+    if (freezeAt !== undefined) {
+      let raf = 0;
+      let drawn = -1;
+      let drawnAt = 0;
+      const loop = (now: number) => {
+        // Redraw when the held moment moves, and a few times a second for flicker and grain.
+        const at = held.current ?? 0;
+        if (at !== drawn || now - drawnAt > 250) {
+          renderer.render(courtShot(at), at, false);
+          drawTitles(ctx, w, h, at);
+          drawn = at;
+          drawnAt = now;
         }
-      },
-      onDone,
-    );
-    return stop;
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      stop = () => cancelAnimationFrame(raf);
+    } else {
+      // Join part-way if this phone is late, so the clip ends as voting opens.
+      const from = opensAt !== undefined && now ? Math.max(0, COURT_DURATION - (opensAt - now()) / 1000) : 0;
+      if (from > COURT_DURATION - MIN_CLIP_S) {
+        renderer.dispose();
+        canvas.remove();
+        onDone();
+        return;
+      }
+      play('court', from);
+      stop = runScene(
+        COURT_DURATION,
+        (t) => {
+          renderer.render(courtShot(t), t);
+          drawTitles(ctx, w, h, t);
+        },
+        onDone,
+        from,
+      );
+    }
+    return () => {
+      stop();
+      canvas.removeEventListener('webglcontextlost', lost);
+      renderer.dispose();
+      canvas.remove();
+    };
     // The scene runs once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[56] overflow-hidden bg-black" role="img" aria-label="Realm Unfolded: Court of the Unblinking Eye">
-      <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
-      <div ref={portrait} className="pointer-events-none absolute left-0 right-0 top-[34%] flex justify-center" style={{ opacity: 0, willChange: 'transform, opacity' }}>
-        <div style={{ WebkitMaskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', }}>
-          <Face character={characterId} role={'judge'} size={Math.min(window.innerWidth * 0.62, 280)} crop="face" expression="angry" glowEyes />
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[56] overflow-hidden bg-ink-950" role="img" aria-label="Domain Expansion: Deadly Sentencing">
+      <div ref={glHost} className="absolute inset-0" />
+      <canvas ref={textCanvas} className="pointer-events-none absolute inset-0 h-full w-full" />
     </div>
   );
+}
+
+/** 領域展開 as the domain closes, then the domain's name after the gavel. */
+function drawTitles(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h);
+  const B = COURT_BEATS;
+  // Hidden during the impact frame so the negative reads cleanly.
+  if (t >= B.gavel && t < B.gavel + 0.065) return;
+  const cx = w / 2;
+
+  // The incantation: big kanji slam in over the ink, then dissolve.
+  const kIn = seg(t, B.kanji, B.kanji + 0.25);
+  const kOut = 1 - seg(t, 0.85, 1.1);
+  if (kIn > 0 && kOut > 0) {
+    const size = Math.min(78, w * 0.19);
+    const s = 1.5 - 0.5 * ease.outExpo(kIn);
+    ctx.save();
+    ctx.globalAlpha = clamp(kIn * 3) * kOut;
+    ctx.translate(cx, h * 0.47);
+    ctx.scale(s, s);
+    ctx.font = `900 ${size}px ${font.jp}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = color.crimson.DEFAULT;
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = color.paper.DEFAULT;
+    ctx.fillText('領域展開', 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  const fade = 1 - seg(t, B.fade, COURT_DURATION);
+  if (t < B.title || fade <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = fade * seg(t, B.title + 0.15, B.title + 0.4);
+  ctx.font = `900 ${Math.min(18, w * 0.045)}px ${font.jp}`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = color.crimson.DEFAULT;
+  ctx.shadowColor = color.crimson.deep;
+  ctx.shadowBlur = 12;
+  ctx.fillText('領 域 展 開', cx, h * 0.735);
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = fade;
+  slamText(ctx, 'DOMAIN EXPANSION', cx, h * 0.8, Math.min(30, w * 0.075), seg(t, B.title, B.title + 0.3), color.paper.DEFAULT, color.crimson.deep);
+  slamText(ctx, 'DEADLY SENTENCING', cx, h * 0.87, Math.min(46, w * 0.1), seg(t, B.title + 0.12, B.title + 0.42), color.paper.DEFAULT, color.crimson.DEFAULT);
+  ctx.restore();
 }

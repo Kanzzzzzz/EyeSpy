@@ -3,7 +3,6 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { character, getRole, type LoggedEvent, type PublicPlayer, type WinReason } from '@eyespy/engine';
 import { Face } from '../art/Face';
-import { roleLook } from '../art/characters';
 import { RoleBadge, TeamIcon } from '../art/RoleBadge';
 import { color, motion as m } from '../design/tokens';
 import { fx } from '../fx/fx';
@@ -84,10 +83,6 @@ export function GameOver() {
               >
                 <span className="shrink-0 border-2 border-black bg-ink-900">
                   <Face avatar={p.avatar} size={46} crop="face" expression={p.alive ? (winner ? 'happy' : 'neutral') : 'dead'} ghost={!p.alive} />
-                </span>
-                <span className="font-display text-xl text-paper-faint">→</span>
-                <span className="shrink-0 border-2 border-black" style={{ background: `${roleLook(p.character, p.role).accent}44` }}>
-                  <Face character={p.character} role={p.role} size={46} crop="face" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-display text-lg uppercase leading-tight text-paper">{p.name}</span>

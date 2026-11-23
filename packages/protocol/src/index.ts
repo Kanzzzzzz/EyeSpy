@@ -12,7 +12,7 @@ import {
  * Bump when a message shape changes in a way old apps can't handle.
  * Phones send theirs in `hello`; a mismatch gets a clear "update" message.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Bonjour / mDNS service type every host announces. */
 export const SERVICE_TYPE = '_eyespy._tcp.';

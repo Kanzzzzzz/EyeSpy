@@ -1,8 +1,7 @@
-import { ROSTER } from '@eyespy/engine';
+import { getRole, ROSTER, type RoleId } from '@eyespy/engine';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useState } from 'react';
 import { Face } from '../art/Face';
-import { roleLook } from '../art/characters';
 import { LogoEye } from '../art/Logo';
 import { RoleBadge, TeamIcon, TEAM_LABEL } from '../art/RoleBadge';
 import { play } from '../audio/sounds';
@@ -99,7 +98,7 @@ export function Reveal() {
             </span>
             <div className="mt-2 flex items-end gap-2">
               {me.role && <RoleBadge role={me.role} team={team} size={86} />}
-              {me.character && <Face character={me.character} role={me.role} size={86} crop="face" />}
+              <Face avatar={view.players.find((p) => p.id === me.id)?.avatar ?? 0} size={86} crop="face" />
             </div>
             <h3 className="title-outline mt-2 font-display text-5xl uppercase leading-none text-paper">{me.roleName}</h3>
             <p className="mt-2 text-sm font-semibold text-paper-dim">{me.summary}</p>
@@ -160,8 +159,8 @@ function CharacterCard({ id, name, title, move, chosen, onChoose }: { id: string
         <AnimatePresence mode="wait" initial={false}>
           {held ? (
             <motion.div key="face" className="absolute inset-0 flex flex-col items-center bg-ink-800" initial={{ rotateY: 90 }} animate={{ rotateY: 0 }} exit={{ rotateY: -90 }} transition={{ duration: 0.12 }}>
-              <div className="w-full" style={{ background: `${roleLook(id).accent}44` }}>
-                <Face character={id} size={120} crop="face" className="h-auto w-full" />
+              <div className="flex w-full justify-center py-3" style={{ background: `${color.team[getRole(id.split('.')[0] as RoleId).team]}44` }}>
+                <RoleBadge role={id.split('.')[0] as RoleId} team={getRole(id.split('.')[0] as RoleId).team} size={84} />
               </div>
               <p className="px-1 font-display text-sm uppercase leading-tight text-paper">{name}</p>
               <p className="px-1 text-[10px] font-semibold leading-tight text-paper-faint">{move}</p>

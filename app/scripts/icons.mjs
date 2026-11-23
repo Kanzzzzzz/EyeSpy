@@ -1,54 +1,80 @@
 /**
- * Renders the app icon and splash screen from the SVGs in assets/ into every
- * size Android and iOS need. Run with `pnpm --filter @eyespy/app icons`.
+ * Renders the app icon and in-app logo from assets/logo.jpg, and the splash
+ * screen from assets/splash.svg, into every size Android and iOS need. Run with `pnpm --filter @eyespy/app icons`.
  */
 import sharp from 'sharp';
 import { mkdirSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const BG = '#0B1020';
-const out = async (input, size, file, opts = {}) => {
+const LOGO = 'assets/logo.jpg';
+// The logo's own corner colour, so padding around it is invisible.
+const BG = '#0C101C';
+
+const save = async (img, file) => {
   mkdirSync(dirname(file), { recursive: true });
-  let img = sharp(input, { density: 600 }).resize(size, size, { fit: 'contain', background: BG });
-  if (opts.round) {
-    const mask = Buffer.from(`<svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}"/></svg>`);
-    img = img.composite([{ input: mask, blend: 'dest-in' }]);
-  }
-  if (opts.flatten) img = img.flatten({ background: BG });
   await img.png().toFile(file);
 };
+
+/** The whole logo as a square, optionally cut to a circle or rounded square. */
+async function icon(size, file, { shape = 'square' } = {}) {
+  let img = sharp(LOGO).resize(size, size);
+  if (shape !== 'square') {
+    const r = shape === 'round' ? size / 2 : size * 0.22;
+    const mask = Buffer.from(`<svg width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${r}" ry="${r}"/></svg>`);
+    img = img.composite([{ input: mask, blend: 'dest-in' }]);
+  }
+  await save(img, file);
+}
+
+/**
+ * Android adaptive foreground: 108dp canvas of which only the middle 66dp is
+ * guaranteed visible, so the badge is scaled to sit inside that safe zone.
+ */
+async function adaptiveForeground(size, file) {
+  const inner = Math.round(size * 0.69);
+  const pad = size - inner;
+  const left = Math.floor(pad / 2);
+  const img = sharp(LOGO)
+    .resize(inner, inner)
+    .extend({ top: left, bottom: pad - left, left, right: pad - left, background: BG });
+  await save(img, file);
+}
+
+/** The original EyeSpy eye splash, kept so the launch screen matches the in-app design. */
+async function splash(W, H, file) {
+  await save(sharp('assets/splash.svg', { density: 72 }).resize(W, H, { fit: 'cover' }), file);
+}
 
 // Android launcher icons (legacy + adaptive foreground).
 const android = 'android/app/src/main/res';
 const densities = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 if (existsSync(android)) {
   for (const [d, k] of Object.entries(densities)) {
-    await out('public/icon.svg', Math.round(48 * k), `${android}/mipmap-${d}/ic_launcher.png`);
-    await out('public/icon.svg', Math.round(48 * k), `${android}/mipmap-${d}/ic_launcher_round.png`, { round: true });
-    await out('assets/icon-foreground.svg', Math.round(108 * k), `${android}/mipmap-${d}/ic_launcher_foreground.png`);
+    await icon(Math.round(48 * k), `${android}/mipmap-${d}/ic_launcher.png`, { shape: 'rounded' });
+    await icon(Math.round(48 * k), `${android}/mipmap-${d}/ic_launcher_round.png`, { shape: 'round' });
+    await adaptiveForeground(Math.round(108 * k), `${android}/mipmap-${d}/ic_launcher_foreground.png`);
   }
-  for (const [d, k] of Object.entries({ mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 })) {
+  for (const [d, k] of Object.entries(densities)) {
     const w = Math.round(320 * k);
     const h = Math.round(480 * k);
-    for (const orient of ['port', 'land']) {
-      const [W, H] = orient === 'port' ? [w, h] : [h, w];
-      const file = `${android}/drawable-${orient}-${d}/splash.png`;
-      mkdirSync(dirname(file), { recursive: true });
-      await sharp('assets/splash.svg', { density: 72 }).resize(W, H, { fit: 'cover' }).png().toFile(file);
-    }
+    await splash(w, h, `${android}/drawable-port-${d}/splash.png`);
+    await splash(h, w, `${android}/drawable-land-${d}/splash.png`);
   }
-  await sharp('assets/splash.svg', { density: 72 }).resize(480, 480).png().toFile(`${android}/drawable/splash.png`);
+  await splash(480, 480, `${android}/drawable/splash.png`);
 }
 
 // iOS: a single 1024 icon (Xcode 14+ derives the rest) and the splash.
 const ios = 'ios/App/App/Assets.xcassets';
 if (existsSync(ios)) {
-  await out('public/icon.svg', 1024, `${ios}/AppIcon.appiconset/AppIcon-512@2x.png`, { flatten: true });
+  await icon(1024, `${ios}/AppIcon.appiconset/AppIcon-512@2x.png`);
   for (const name of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
-    await sharp('assets/splash.svg', { density: 72 }).resize(2732, 2732).png().toFile(`${ios}/Splash.imageset/${name}`);
+    await splash(2732, 2732, `${ios}/Splash.imageset/${name}`);
   }
 }
 
-// Store listing icon.
-await out('public/icon.svg', 512, 'assets/store-icon-512.png', { flatten: true });
-console.log('icons and splash screens written');
+// Store listing icon, browser tab icon and the logo shown inside the app.
+await icon(512, 'assets/store-icon-512.png');
+await icon(256, 'public/icon.png', { shape: 'rounded' });
+mkdirSync('src/art', { recursive: true });
+await sharp(LOGO).resize(720, 720).webp({ quality: 88 }).toFile('src/art/logo.webp');
+console.log('icons, splash screens and logo written');

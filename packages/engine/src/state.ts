@@ -8,6 +8,13 @@ import {
   type SpecialRoleId,
 } from './types';
 
+/**
+ * Time every phone spends on the Judge's hearing intro cutscene before
+ * voting opens (the app's cutscene runs 4.4 s). The voting time, hearingMs,
+ * starts after it, so players always get the full time to vote.
+ */
+export const HEARING_INTRO_MS = 5000;
+
 export const DEFAULT_SETTINGS: Settings = {
   roles: { killer: 1, sheriff: 1, shush: 1, snitch: 1, judge: 0, loverPairs: 0 },
   autoRoles: true,
@@ -18,7 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   victimsSeeKiller: true,
   revealTimeoutMs: 30000,
   arrestVerdictMs: 4500,
-  hearingMs: 20000,
+  hearingMs: 30000,
   lookLockMs: 1500,
   raisesToUnlock: 3,
   shushLockKills: 2,
@@ -125,6 +132,7 @@ export function shiftTime(state: GameState, ms: number, now: number): GameState 
     }
     if (s.hearing) {
       s.hearing.startedAt += ms;
+      s.hearing.opensAt += ms;
       s.hearing.endsAt += ms;
     }
     for (const rs of Object.values(s.roles)) {

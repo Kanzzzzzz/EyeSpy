@@ -57,7 +57,6 @@ export function Alerts() {
 }
 
 function Portrait({ alert, size, expression = 'neutral' }: { alert: Alert; size: number; expression?: 'neutral' | 'shock' | 'sly' | 'dead' | 'wink' | 'raise' }) {
-  if (alert.character) return <Face character={alert.character} size={size} crop="face" expression={expression} />;
   if (alert.avatar !== undefined) return <Face avatar={alert.avatar} size={size} crop="face" expression={expression} />;
   return null;
 }
@@ -172,7 +171,7 @@ function FinisherAlert({ alert }: { alert: Alert }) {
   return (
     <AnimatePresence mode="wait">
       {!done ? (
-        <FinisherScene key="scene" kind={alert.finisher ?? 'slash'} characterId={alert.character ?? null} onDone={() => setDone(true)} />
+        <FinisherScene key="scene" kind={alert.finisher ?? 'slash'} characterId={alert.character ?? null} avatar={alert.avatar ?? 0} onDone={() => setDone(true)} />
       ) : (
         <motion.div
           key="card"
@@ -234,7 +233,7 @@ function Modal({ alert }: { alert: Alert }) {
             <RoleBadge role={alert.role} team={getRole(alert.role).team} size={96} />
           </div>
         )}
-        {!alert.role && (alert.character || alert.avatar !== undefined) && (
+        {!alert.role && alert.avatar !== undefined && (
           <div className="mb-3 flex justify-center">
             <div className="border-[3px] border-black bg-ink-800">
               <Portrait alert={alert} size={120} expression={alert.tone === 'danger' ? 'shock' : 'sly'} />

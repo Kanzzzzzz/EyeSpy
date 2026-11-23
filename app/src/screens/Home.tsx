@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Avatar, AVATARS } from '../art/Avatar';
-import { LogoEye, Wordmark } from '../art/Logo';
+import logoUrl from '../art/logo.webp';
 import { isNative } from '../platform/device';
 import { useGame } from '../state/store';
 import { Button, Screen, Spinner } from '../ui/kit';
@@ -44,9 +44,10 @@ export function Home() {
       </div>
 
       <motion.div className="flex flex-col items-center text-center" initial={{ opacity: 0, scale: 0.8, rotate: -4 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ ...m.bouncy, delay: 0.05 }}>
-        <LogoEye size={210} />
-        <Wordmark className="mt-1 text-6xl" />
-        <p className="mt-3 max-w-[19rem] font-semibold text-paper-dim">
+        <h1>
+          <img src={logoUrl} width={260} height={260} alt="EyeSpy" draggable={false} className="select-none" />
+        </h1>
+        <p className="-mt-2 max-w-[19rem] font-semibold text-paper-dim">
           Lock eyes. Wink to kill. Raise a brow to plot. A silent party game for very bad liars.
         </p>
       </motion.div>
@@ -106,7 +107,7 @@ export function Home() {
                   style={{ borderColor: i === prefs.avatar ? color.cyan.DEFAULT : '#000' }}
                   aria-label={a.name}
                 >
-                  <Avatar id={i} size={50} />
+                  <Avatar id={i} size={50} className="block h-auto w-full" />
                 </motion.button>
               ))}
             </motion.div>

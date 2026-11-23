@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { Face } from '../art/Face';
+import { useEffect, useRef, useState } from 'react';
 import { play } from '../audio/sounds';
 import { blade, clamp, ease, fitCanvas, lerp, rng, runScene, seg, slamText } from './engine';
+import { SlashedFace, type SlashedFaceHandle } from './SlashedFace';
 
 /**
  * "Realm Unfolded: Thousand-Petal Abattoir", Shuten's finisher, played on
@@ -10,8 +10,10 @@ import { blade, clamp, ease, fitCanvas, lerp, rng, runScene, seg, slamText } fro
  *  0.00  impact frame (negative flash)
  *  0.15  crimson ink blooms out from the centre, camera pushes in
  *  1.20  the barrier snaps shut, a blood moon rises, a lotus of blades opens
- *  1.40  Shuten looms, eyes burning; the title slams in
- *  2.40  twelve cuts criss-cross the screen
+ *  1.00  the victim's own portrait is dragged into the realm, trembling
+ *  1.45  the title slams in
+ *  2.40  twelve cuts criss-cross the screen; the first one splits the portrait
+ *        in two and the halves slide apart
  *  3.02  white-out, the world shatters
  *  4.20  done
  *
@@ -19,27 +21,37 @@ import { blade, clamp, ease, fitCanvas, lerp, rng, runScene, seg, slamText } fro
  */
 export const REALM_DURATION = 4.2;
 
-export function RealmScene({ characterId, onDone }: { characterId: string | null; onDone: () => void }) {
+/** The angle of the first cut, the one that splits the victim's portrait (radians, y down: rising to the right). */
+export const MAIN_CUT = -0.55;
+
+export function RealmScene({ avatar, onDone }: { avatar: number; onDone: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const portrait = useRef<HTMLDivElement>(null);
+  const front = useRef<HTMLCanvasElement>(null);
+  const face = useRef<SlashedFaceHandle>(null);
+  const [cut, setCut] = useState(false);
+  // Sized once, like the canvases, so the portrait and the cuts line up.
+  const [{ size, cy: centerY }] = useState(() => ({ size: Math.min(window.innerWidth * 0.62, 250), cy: window.innerHeight * 0.42 }));
 
   useEffect(() => {
-    const c = canvas.current!;
-    const { ctx, w, h } = fitCanvas(c);
+    const { ctx, w, h } = fitCanvas(canvas.current!);
+    // A second canvas above the portrait carries the cuts, the white-outs and the title.
+    const { ctx: fg } = fitCanvas(front.current!);
     const cx = w / 2;
-    const cy = h * 0.42;
+    const cy = centerY;
     const R = Math.hypot(w, h);
     const r = rng(7);
     // Pre-roll the random shapes so every frame draws the same scene.
     const tendrils = Array.from({ length: 34 }, () => ({ a: r() * Math.PI * 2, len: 0.5 + r() * 0.6, wob: (r() - 0.5) * 1.6, w: 6 + r() * 18 }));
     const embers = Array.from({ length: 90 }, () => ({ x: r() * w, y: h + r() * h * 0.6, v: 60 + r() * 160, s: 1 + r() * 3, ph: r() * 6 }));
     const cuts = Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI + (r() - 0.5) * 0.4;
+      // The first cut is the one that splits the portrait; the rest fan out through the same point.
+      const a = i === 0 ? MAIN_CUT : MAIN_CUT + (i / 12) * Math.PI + (r() - 0.5) * 0.4;
       const len = R * 0.6;
       return { x1: cx - Math.cos(a) * len, y1: cy - Math.sin(a) * len, x2: cx + Math.cos(a) * len, y2: cy + Math.sin(a) * len, at: 2.4 + i * 0.045 + r() * 0.02 };
     });
     const shards = Array.from({ length: 26 }, () => ({ x: r() * w, y: r() * h, vx: (r() - 0.5) * 900, vy: (r() - 0.6) * 900, rot: (r() - 0.5) * 8, s: 40 + r() * 90 }));
     let cutsPlayed = false;
+    let faceCut = false;
     play('realm');
 
     const stop = runScene(
@@ -49,6 +61,10 @@ export function RealmScene({ characterId, onDone }: { characterId: string | null
           cutsPlayed = true;
           play('realmCuts');
         }
+        if (t >= 2.4 && !faceCut) {
+          faceCut = true;
+          setCut(true);
+        }
         // Camera: a slow push in, a kick on the barrier, a shake during the cuts.
         const push = 1 + 0.12 * ease.outCubic(seg(t, 0, 2.4)) + 0.06 * Math.exp(-12 * Math.max(0, t - 1.2)) * (t > 1.2 ? 1 : 0);
         const shake = t > 2.4 && t < 3.2 ? (1 - seg(t, 2.4, 3.2)) * 14 : t > 1.2 && t < 1.5 ? 10 * (1 - seg(t, 1.2, 1.5)) : 0;
@@ -57,6 +73,7 @@ export function RealmScene({ characterId, onDone }: { characterId: string | null
 
         ctx.setTransform(ctx.getTransform().a, 0, 0, ctx.getTransform().d, 0, 0);
         ctx.clearRect(0, 0, w, h);
+        fg.clearRect(0, 0, w, h);
         ctx.save();
         ctx.translate(cx + sx, cy + sy);
         ctx.scale(push, push);
@@ -152,87 +169,88 @@ export function RealmScene({ characterId, onDone }: { characterId: string | null
         ctx.restore();
 
         // Title, in screen space so it reads cleanly.
-        slamText(ctx, 'REALM UNFOLDED', cx, h * 0.76, Math.min(30, w * 0.075), seg(t, 1.45, 1.75), '#F7F2E8', '#C4001F');
-        slamText(ctx, 'THOUSAND-PETAL', cx, h * 0.83, Math.min(52, w * 0.12), seg(t, 1.6, 1.9), '#F7F2E8', '#FF2D55');
-        slamText(ctx, 'ABATTOIR', cx, h * 0.9, Math.min(60, w * 0.14), seg(t, 1.72, 2.02), '#FFFFFF', '#FF2D55');
-        ctx.save();
-        ctx.globalAlpha = seg(t, 1.9, 2.2) * (1 - seg(t, 3.0, 3.2));
-        ctx.font = `900 ${Math.min(18, w * 0.045)}px "Hiragino Sans","Noto Sans CJK JP","Noto Sans JP",sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#FF8A9B';
-        ctx.fillText('千 花 屠 苑', cx, h * 0.705);
-        ctx.restore();
+        slamText(fg, 'REALM UNFOLDED', cx, h * 0.76, Math.min(30, w * 0.075), seg(t, 1.45, 1.75), '#F7F2E8', '#C4001F');
+        slamText(fg, 'THOUSAND-PETAL', cx, h * 0.83, Math.min(52, w * 0.12), seg(t, 1.6, 1.9), '#F7F2E8', '#FF2D55');
+        slamText(fg, 'ABATTOIR', cx, h * 0.9, Math.min(60, w * 0.14), seg(t, 1.72, 2.02), '#FFFFFF', '#FF2D55');
+        fg.save();
+        fg.globalAlpha = seg(t, 1.9, 2.2) * (1 - seg(t, 3.0, 3.2));
+        fg.font = `900 ${Math.min(18, w * 0.045)}px "Hiragino Sans","Noto Sans CJK JP","Noto Sans JP",sans-serif`;
+        fg.textAlign = 'center';
+        fg.fillStyle = '#FF8A9B';
+        fg.fillText('千 花 屠 苑', cx, h * 0.705);
+        fg.restore();
 
         // Twelve cuts.
-        for (const cut of cuts) {
-          const k = seg(t, cut.at, cut.at + 0.07);
-          const fade = 1 - seg(t, cut.at + 0.07, cut.at + 0.5);
+        for (const c of cuts) {
+          const k = seg(t, c.at, c.at + 0.07);
+          const fade = 1 - seg(t, c.at + 0.07, c.at + 0.5);
           if (k > 0 && fade > 0) {
-            ctx.save();
-            ctx.globalAlpha = fade;
-            blade(ctx, cut.x1, cut.y1, cut.x2, cut.y2, 7, '#FF2D55', k);
-            ctx.restore();
+            fg.save();
+            fg.globalAlpha = fade;
+            blade(fg, c.x1, c.y1, c.x2, c.y2, 7, '#FF2D55', k);
+            fg.restore();
           }
         }
 
         // Impact frames: the opening negative flash, and the white-out before the shatter.
         const flash = Math.max(1 - seg(t, 0, 0.15), t > 3.02 ? 1 - seg(t, 3.02, 3.25) : 0, t > 1.2 && t < 1.3 ? 0.6 : 0);
         if (flash > 0) {
-          ctx.fillStyle = `rgba(255,255,255,${flash})`;
-          ctx.fillRect(0, 0, w, h);
+          fg.fillStyle = `rgba(255,255,255,${flash})`;
+          fg.fillRect(0, 0, w, h);
         }
 
         // The shatter: black shards fly out, revealing darkness.
         if (t > 3.1) {
           const k = seg(t, 3.1, 4.0);
-          ctx.fillStyle = '#000';
-          ctx.globalAlpha = clamp(k * 1.5);
-          ctx.fillRect(0, 0, w, h);
-          ctx.globalAlpha = 1 - k;
+          fg.fillStyle = '#000';
+          fg.globalAlpha = clamp(k * 1.5);
+          fg.fillRect(0, 0, w, h);
+          fg.globalAlpha = 1 - k;
           for (const s of shards) {
-            ctx.save();
-            ctx.translate(s.x + s.vx * k, s.y + s.vy * k + 600 * k * k);
-            ctx.rotate(s.rot * k);
-            ctx.fillStyle = '#5C0014';
-            ctx.strokeStyle = '#FF8A9B';
-            ctx.beginPath();
-            ctx.moveTo(0, -s.s / 2);
-            ctx.lineTo(s.s / 2, s.s / 3);
-            ctx.lineTo(-s.s / 2, s.s / 4);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
+            fg.save();
+            fg.translate(s.x + s.vx * k, s.y + s.vy * k + 600 * k * k);
+            fg.rotate(s.rot * k);
+            fg.fillStyle = '#5C0014';
+            fg.strokeStyle = '#FF8A9B';
+            fg.beginPath();
+            fg.moveTo(0, -s.s / 2);
+            fg.lineTo(s.s / 2, s.s / 3);
+            fg.lineTo(-s.s / 2, s.s / 4);
+            fg.closePath();
+            fg.fill();
+            fg.stroke();
+            fg.restore();
           }
-          ctx.globalAlpha = 1;
+          fg.globalAlpha = 1;
         }
 
-        // Portrait layer (DOM): rises with the moon, grows during the cuts, gone at the shatter.
-        const p = portrait.current;
-        if (p) {
-          const rise = ease.outCubic(seg(t, 1.35, 2.1));
-          const scale = lerp(1.25, 1, rise) * (1 + 0.08 * seg(t, 2.4, 3.0));
-          const alpha = rise * (1 - seg(t, 3.0, 3.2));
-          p.style.opacity = String(alpha);
-          p.style.transform = `translate(${sx}px, ${lerp(80, 0, rise) + sy}px) scale(${scale})`;
-          p.style.filter = t > 2.4 && t < 3.05 && Math.floor(t * 30) % 4 === 0 ? 'invert(1) hue-rotate(180deg)' : 'none';
-        }
+        // The victim's portrait (DOM, between the two canvases): dragged in, trembling, then cut in two.
+        const rise = ease.outCubic(seg(t, 1.0, 1.7));
+        const tremble = t > 1.7 && t < 2.4 ? Math.sin(t * 80) * 2.2 * seg(t, 1.7, 2.3) : 0;
+        const hit = t >= 2.4 ? Math.exp(-14 * (t - 2.4)) * 10 : 0;
+        face.current?.pose({
+          alpha: rise * (1 - seg(t, 3.0, 3.2)),
+          x: sx + tremble + hit,
+          y: lerp(60, 0, rise) + sy,
+          scale: lerp(1.25, 1, rise) * (1 + 0.05 * seg(t, 1.7, 2.4)),
+          split: ease.outExpo(seg(t, 2.42, 3.0)),
+          flash: t >= 2.4 ? 1 - seg(t, 2.4, 2.6) : 0,
+          glitch: t > 2.4 && t < 3.05 && Math.floor(t * 30) % 4 === 0,
+        });
       },
       onDone,
     );
+    face.current?.pose({ alpha: 0, split: 0, flash: 0 });
     return stop;
     // The scene runs once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[55] overflow-hidden bg-black" role="img" aria-label="Realm Unfolded: Thousand-Petal Abattoir">
+    <div className="fixed inset-0 z-[55] overflow-hidden bg-black" role="img" aria-label="Realm Unfolded: Thousand-Petal Abattoir. You are cut down.">
       <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
-      <div ref={portrait} className="pointer-events-none absolute inset-x-0 top-[16%] flex justify-center" style={{ opacity: 0, willChange: 'transform, opacity' }}>
-        <div style={{ WebkitMaskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse 50% 52% at 50% 46%, #000 62%, transparent 100%)', }}>
-          <Face character={characterId} role={'killer'} size={Math.min(window.innerWidth * 0.78, 340)} crop="face" expression="sly" glowEyes />
-        </div>
-      </div>
+      <SlashedFace ref={face} avatar={avatar} size={size} angle={MAIN_CUT} expression={cut ? 'dead' : 'shock'} className="pointer-events-none" style={{ top: centerY, opacity: 0 }} />
+      <canvas ref={front} className="pointer-events-none absolute inset-0 h-full w-full" />
     </div>
   );
 }

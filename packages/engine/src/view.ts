@@ -4,6 +4,7 @@ import { ghostAbilitiesFor, hasEyeContact, resolveCooldown } from './reducer';
 import { checkRoleMix, type MixCheck } from './state';
 import type {
   GameResult,
+  Hearing,
   GameState,
   LoggedEvent,
   Phase,
@@ -80,9 +81,13 @@ export interface MyView {
 }
 
 export interface HearingView {
+  /** Voting opens after the intro cutscene, and closes at endsAt. */
+  opensAt: number;
   endsAt: number;
   /** Who has voted so far (not for whom). */
   voted: PlayerId[];
+  /** How many votes each player has right now. Never who cast them. */
+  tally: Record<PlayerId, number>;
   myVote: PlayerId | null;
 }
 
@@ -220,10 +225,22 @@ export function viewFor(state: GameState, playerId: PlayerId | null): PlayerView
     arrest: state.pendingArrest
       ? { targetId: state.pendingArrest.targetId, verdictAt: state.pendingArrest.verdictAt }
       : null,
-    hearing: h
-      ? { endsAt: h.endsAt, voted: Object.keys(h.votes), myVote: (playerId && h.votes[playerId]) || null }
-      : null,
+    hearing: h ? hearingView(h, playerId) : null,
     result: state.result,
     timeline: ended ? state.log : null,
+  };
+}
+
+/** A hearing as one phone sees it: who has voted and the running counts, never who voted for whom. */
+function hearingView(h: Hearing, playerId: PlayerId | null): HearingView {
+  const tally: Record<PlayerId, number> = {};
+  for (const target of Object.values(h.votes)) tally[target] = (tally[target] ?? 0) + 1;
+  return {
+    // Hearings saved by older versions have no opensAt: voting was open from the start.
+    opensAt: h.opensAt ?? h.startedAt,
+    endsAt: h.endsAt,
+    voted: Object.keys(h.votes),
+    tally,
+    myVote: (playerId && h.votes[playerId]) || null,
   };
 }

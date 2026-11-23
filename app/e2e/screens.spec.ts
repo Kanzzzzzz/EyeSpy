@@ -102,17 +102,22 @@ test('a full round against bots', async ({ page }) => {
   const judge = await room<string | undefined>(page, `return idOf('judge');`);
   if (judge && judge !== meId && myRole !== 'judge') {
     await room(page, `const j = idOf('judge'); room.state = { ...room.state, roles: { ...roles, [j]: { ...roles[j], raisesSent: 3 } } }; room.dispatch(j, { type: 'useAbility', abilityId: 'hearing' });`);
-    await page.waitForTimeout(600);
-    await shot(page, '15a-court-eye');
-    await page.waitForTimeout(800);
-    await shot(page, '15b-court-title');
-    await page.waitForTimeout(500);
+    // Domain Expansion: Deadly Sentencing, then 30 seconds to vote.
+    await page.waitForTimeout(700);
+    await shot(page, '15a-court-ink');
+    await page.waitForTimeout(1300);
+    await shot(page, '15b-court-assemble');
+    await page.waitForTimeout(1200);
     await shot(page, '15c-court-gavel');
-    await page.waitForTimeout(1600);
+    await expect(page.getByRole('dialog', { name: 'Hearing: vote someone out' })).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(800);
     await shot(page, '15-hearing');
     const target = await room<string>(page, `return idOf('shush') ?? idOf('snitch');`);
     const targetName = await room<string>(page, `return room.state.players.find((p) => p.id === '${target}').name;`);
-    await page.getByRole('button', { name: new RegExp(`^Vote out ${targetName}`) }).click();
+    await page.getByRole('button', { name: new RegExp(`^Pick ${targetName}`) }).click();
+    await page.waitForTimeout(400);
+    await shot(page, '16a-hearing-picked');
+    await page.getByRole('button', { name: /^Confirm vote/ }).click();
     await page.waitForTimeout(400);
     await shot(page, '16-hearing-voted');
     await room(page, `for (const p of room.state.players) if (p.alive && p.id !== me && p.id !== '${target}') room.dispatch(p.id, { type: 'vote', targetId: '${target}' }); room.dispatch('${target}', { type: 'vote', targetId: me === '${target}' ? idOf('killer') : me });`);

@@ -9,7 +9,11 @@ its hotspot; every other phone joins. The design doc is `docs/design.md`.
   `viewFor(state, playerId)`, win checks, roles. No I/O, no timers, no `Date.now()`.
 - `packages/engine/src/roles/{standard,special}`: one file per role.
 - `packages/engine/src/roster.ts`: the secret characters for each role (ids, names, moves).
-  Their looks live in `app/src/art/characters.ts`, drawn by `app/src/art/AnimeFace.tsx`.
+  They have no drawn face: every face in the game is a player's own lobby portrait, so a
+  kill scene shows the victim being cut down. The 12 lobby faces are painted portraits:
+  `app/src/art/portraits/` (images, rig maps, `portraits.json`), animated by
+  `app/src/art/Portrait.tsx`; `app/src/art/Face.tsx` is the one component that draws them.
+  `app/src/motion/SlashedFace.tsx` is the portrait that can be cut in two.
 - `packages/protocol`: Zod schemas for every message, QR formats, constants.
 - `packages/room`: the host-side `Room` (tokens, reconnects, heartbeats,
   snapshots), the phone-side `GameClient`, transports and `Bot`.
@@ -34,7 +38,7 @@ its hotspot; every other phone joins. The design doc is `docs/design.md`.
 3. Rules work is test-first: write failing tests that describe the rule, then the code.
 4. A new role is one file under `packages/engine/src/roles/`, registered in
    `roles/index.ts`, with its own tests, a badge glyph in `app/src/art/RoleBadge.tsx`,
-   optionally an exclusive character in `roster.ts` + `characters.ts`, and off by default if it is special.
+   optionally an exclusive character (name and move) in `roster.ts`, and off by default if it is special.
 5. Eye rules: winks and raises need eye contact (both looking at each other);
    arrests and targeted abilities act on the panel the player has open. Gaze is
    secret: a phone only learns whether the person it looks at looks back, and how

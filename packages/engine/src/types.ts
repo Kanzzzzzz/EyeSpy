@@ -116,6 +116,8 @@ export interface PendingArrest {
 export interface Hearing {
   judgeId: PlayerId;
   startedAt: number;
+  /** When voting opens, after the intro cutscene. */
+  opensAt: number;
   endsAt: number;
   /** voter -> who they voted for. Secret until the result. */
   votes: Record<PlayerId, PlayerId>;

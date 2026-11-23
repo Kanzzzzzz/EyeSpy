@@ -37,7 +37,7 @@ const r = (role: RoleId, key: string, name: string, title: string, move: string,
  */
 export const ROSTER: Record<RoleId, RosterEntry[]> = {
   killer: [r('killer', 'shuten', 'Shuten', 'The Cursed Sovereign', 'Realm Unfolded: Thousand-Petal Abattoir', 'realm')],
-  judge: [r('judge', 'tenbin', 'Rei Tenbin', 'The Unblinking Magistrate', 'Realm Unfolded: Court of the Unblinking Eye')],
+  judge: [r('judge', 'tenbin', 'Rei Tenbin', 'The Unblinking Magistrate', 'Domain Expansion: Deadly Sentencing')],
   sheriff: [],
   shush: [],
   snitch: [],

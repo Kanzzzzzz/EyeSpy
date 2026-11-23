@@ -1,34 +1,22 @@
-import { ROSTER, type RoleId } from '@eyespy/engine';
-import { AnimeFace, type Expression, type Gaze } from '../art/AnimeFace';
-import { PUBLIC_LOOKS, ROLE_LOOKS } from '../art/characters';
+import type { Expression, Gaze } from '../art/faceTypes';
+import { Portrait } from '../art/Portrait';
+import { PORTRAITS } from '../art/portraits';
 
 /**
- * Development-only sheet of every character and expression, for reviewing
+ * Development-only sheet of every portrait and expression, for reviewing
  * the art (open the app with ?gallery). Not reachable in the shipped app.
  */
 export function Gallery() {
   const expressions: Expression[] = ['neutral', 'wink', 'raise', 'happy', 'shock', 'angry', 'sly', 'dead'];
-  const gazes: Gaze[] = ['you', 'left', 'right', 'down'];
+  const gazes: Gaze[] = ['you', 'left', 'right', 'down', 'up'];
   return (
     <div className="min-h-screen bg-ink-900 p-4 text-paper">
-      <h1 className="font-display text-4xl uppercase">Exclusive characters</h1>
-      <div className="mt-3 flex flex-col items-center gap-4">
-        {Object.entries(ROLE_LOOKS).map(([id, look]) => (
-          <figure key={id} className="border-2 border-paper p-2" style={{ background: `${look.accent}22` }} data-testid={id}>
-            <AnimeFace look={look} size={330} />
-            <div className="flex justify-center gap-2">
-              <AnimeFace look={look} size={160} crop="eyes" expression="sly" glowEyes />
-              <AnimeFace look={look} size={160} crop="eyes" expression="wink" />
-            </div>
-            <figcaption className="text-center">{id}</figcaption>
-          </figure>
-        ))}
-      </div>
-      <h1 className="mt-6 font-display text-4xl uppercase">Public characters</h1>
+      <h1 className="font-display text-4xl uppercase">Characters</h1>
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {PUBLIC_LOOKS.map((l) => (
-          <figure key={l.name} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center">
-            <AnimeFace look={l} size={118} />
+        {PORTRAITS.map((l, i) => (
+          <figure key={l.id} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center" data-testid={`portrait-${l.id}`}>
+            <Portrait id={i} size={118} blink />
+            <Portrait id={i} size={118} crop="eyes" />
             <figcaption className="text-sm">{l.name}</figcaption>
           </figure>
         ))}
@@ -37,35 +25,18 @@ export function Gallery() {
       <div className="mt-3 grid grid-cols-3 gap-2">
         {expressions.map((e) => (
           <figure key={e} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center">
-            <AnimeFace look={PUBLIC_LOOKS[0]!} size={118} crop="eyes" expression={e} />
-            <AnimeFace look={PUBLIC_LOOKS[3]!} size={118} crop="face" expression={e} />
+            <Portrait id={0} size={118} crop="eyes" expression={e} />
+            <Portrait id={3} size={118} crop="face" expression={e} />
             <figcaption className="text-sm">{e}</figcaption>
           </figure>
         ))}
         {gazes.map((g) => (
           <figure key={g} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center">
-            <AnimeFace look={PUBLIC_LOOKS[1]!} size={118} crop="eyes" gaze={g} />
+            <Portrait id={1} size={118} crop="eyes" gaze={g} />
             <figcaption className="text-sm">gaze {g}</figcaption>
           </figure>
         ))}
       </div>
-      {(Object.keys(ROSTER) as RoleId[]).map((role) => (
-        <section key={role} className="mt-6">
-          <h2 className="font-display text-3xl uppercase">{role}</h2>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {ROSTER[role].map((c) => (
-              <figure key={c.id} className="rounded-md border-2 border-paper bg-ink-800 p-1 text-center" style={{ background: `${ROLE_LOOKS[c.id]?.accent}33` }}>
-                {ROLE_LOOKS[c.id] ? <AnimeFace look={ROLE_LOOKS[c.id]!} size={118} /> : <p>missing</p>}
-                <figcaption className="text-sm">
-                  {c.name}
-                  <br />
-                  <span className="text-xs text-paper-dim">{c.title}</span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-      ))}
     </div>
   );
 }

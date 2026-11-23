@@ -110,12 +110,12 @@ export function slamText(
   ctx.restore();
 }
 
-/** Drive a scene: calls `frame(t)` every animation frame until `duration`, then `done`. */
-export function runScene(duration: number, frame: (t: number) => void, done: () => void): () => void {
+/** Drive a scene: calls `frame(t)` every animation frame until `duration`, then `done`. `from` starts it part-way. */
+export function runScene(duration: number, frame: (t: number) => void, done: () => void, from = 0): () => void {
   let raf = 0;
   const start = performance.now();
   const loop = (now: number) => {
-    const t = (now - start) / 1000;
+    const t = from + (now - start) / 1000;
     frame(Math.min(t, duration));
     if (t >= duration) {
       done();

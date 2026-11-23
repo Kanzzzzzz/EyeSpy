@@ -49,6 +49,13 @@ export function Settings() {
             EyeSpy has no accounts, ads or analytics, and never uses the internet. Your name and character are stored on this phone only and shared only with the phones in your game.
           </p>
         </Card>
+        <Card>
+          <Label>Credits</Label>
+          <p className="text-sm text-paper-dim">
+            The Judge's <span className="text-spot">Domain Expansion: Deadly Sentencing</span> is a fan nod to Hiromi Higuruma's domain in <em>Jujutsu Kaisen</em> by Gege Akutami (Shueisha). EyeSpy's characters, art and animation are original, and the game isn't affiliated with or endorsed by the series.
+          </p>
+          <p className="mt-2 text-sm text-paper-faint">Sound effects from 効果音ラボ (Soundeffect-Lab). Fonts: Anton and Outfit (SIL Open Font License).</p>
+        </Card>
         <p className="text-center text-xs text-paper-faint">EyeSpy {APP_VERSION}</p>
       </div>
     </Screen>

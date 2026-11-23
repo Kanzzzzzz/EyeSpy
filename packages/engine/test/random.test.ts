@@ -107,7 +107,7 @@ function playRandomGame(seed: number): { ended: boolean; steps: number; state: G
   const g = lobby(n, seed);
   // Randomise settings a little, including special roles.
   const special = Object.fromEntries(SPECIAL_ROLE_IDS.map((id) => [id, rng.next() < 0.25]));
-  g.configure({ special, victimsSeeKiller: rng.next() < 0.5, winkCooldownMs: rng.pick([0, 5000, 15000]) });
+  g.configure({ special, victimsSeeKiller: rng.next() < 0.5, winkCooldownMs: rng.pick([0, 5000, 15000]), hearingMs: rng.pick([10000, 30000]) });
   if (g.try('p0', { type: 'start' }).error) {
     // Too many special roles for this player count: drop them.
     g.configure({ special: Object.fromEntries(SPECIAL_ROLE_IDS.map((id) => [id, false])) });

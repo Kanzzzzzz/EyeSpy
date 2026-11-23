@@ -29,7 +29,16 @@ interface Layer {
   dur?: number;
 }
 
-const CUES = {
+/** One gavel strike on its sounding block: a sharp hardwood crack and a short wooden thump, in a courtroom-sized room. */
+function gavelRap(at: number, gain: number): Layer[] {
+  return [
+    { file: 'hyoushigi1', gain: 0.55 * gain, rate: 0.82, dur: 0.22, verb: 0.3, at },
+    { file: 'door-wood-knock1', gain: 1.1 * gain, rate: 0.92, dur: 0.13, verb: 0.35, at },
+    { sub: { from: 140, to: 70, dur: 0.07 }, gain: 0.35 * gain, at },
+  ];
+}
+
+export const CUES = {
   tap: [{ file: 'hyoushigi1', gain: 0.18, rate: 1.6 }],
   select: [{ file: 'shakin3', gain: 0.22, rate: 1.5, dur: 0.4 }],
   whoosh: [{ file: 'highspeed-movement1', gain: 0.45 }],
@@ -94,7 +103,28 @@ const CUES = {
     { file: 'super-arts-hit1', gain: 1, verb: 0.6, at: 0.62 },
     { sub: { from: 100, to: 30, dur: 1.2 }, gain: 0.9, at: 0.62 },
   ],
+  // Domain Expansion: Deadly Sentencing (timed to court/timeline.ts).
   court: [
+    { file: 'magic-attack-darkness1', gain: 0.7, rate: 0.8, verb: 0.6 },
+    { file: 'kotsudumi1', gain: 0.9, rate: 0.9, verb: 0.8, at: 0.2 },
+    { file: 'aura2', gain: 0.55, rate: 0.7, verb: 0.6, at: 0.5 },
+    { sub: { from: 48, to: 34, dur: 1.8 }, gain: 0.45, at: 0.55 },
+    { file: 'solemnity1', gain: 1, verb: 0.75, at: 1.0 },
+    { file: 'drum-japanese2', gain: 0.6, rate: 0.8, verb: 0.6, at: 1.0 },
+    { file: 'drum-japanese2', gain: 0.5, rate: 0.75, verb: 0.6, at: 1.35 },
+    { file: 'hyoushigi1', gain: 0.45, rate: 0.8, verb: 0.7, at: 1.6 },
+    { file: 'shakin3', gain: 0.5, rate: 0.7, verb: 0.7, at: 1.95 },
+    // The gavel, rapped three times like a real courtroom: a hardwood crack (clapper)
+    // over the body of a single wood knock. The first strike also lands the domain's boom.
+    ...gavelRap(2.9, 1),
+    { file: 'doon1', gain: 0.7, rate: 0.8, verb: 0.6, at: 2.9 },
+    { sub: { from: 90, to: 32, dur: 0.9 }, gain: 0.7, at: 2.9 },
+    { file: 'text-impact1', gain: 0.55, verb: 0.5, at: 3.0 },
+    ...gavelRap(3.12, 0.8),
+    ...gavelRap(3.32, 0.7),
+  ],
+  // The short version for reduced motion.
+  courtLite: [
     { file: 'magic-attack-darkness1', gain: 0.6, rate: 0.85, verb: 0.6 },
     { file: 'solemnity1', gain: 1, verb: 0.75, at: 1.0 },
     { file: 'door-wood-knock1', gain: 1, rate: 0.75, verb: 0.7, at: 1.9 },
@@ -220,12 +250,17 @@ function playLayer(c: AudioContext, l: Layer) {
   src.start(t, l.offset ?? 0, l.dur);
 }
 
-export function play(name: SoundName) {
+/** Play a cue. `from` starts it that many seconds in (layers that already began are skipped). */
+export function play(name: SoundName, from = 0) {
   if (!enabled) return;
   const c = audioContext();
   if (!c || !master) return;
   if (buffers.size === 0) void preloadSounds();
-  for (const l of CUES[name] as Layer[]) playLayer(c, l);
+  for (const l of CUES[name] as Layer[]) {
+    const at = (l.at ?? 0) - from;
+    if (at < -0.05) continue;
+    playLayer(c, from ? { ...l, at: Math.max(0, at) } : l);
+  }
 }
 
 /** Play one recording on its own (used by the music loop). */

@@ -1,8 +1,9 @@
 # Credits
 
-All art, sounds and music in EyeSpy are original and made in code: the logo,
-the anime character kit (12 public characters and 42 secret role characters),
-role badges and the motion-graphics finishers. The characters are original;
+The app logo (`app/assets/logo.jpg`, used for the launcher icon, store icon and
+the Home screen) is artwork supplied by the project owner. All other art, sounds and music in
+EyeSpy are original and made in code: the role badges and the motion-graphics finishers. The 12 lobby portraits (`app/src/art/portraits/`) are
+painted art from the EyeSpy character sheet, upscaled and rigged (see below). The characters are original;
 none are taken from existing anime. Sound effects are recordings from
 効果音ラボ (see below), layered and mixed in code.
 Japanese lettering uses the phone's built-in CJK font. This file lists
@@ -13,6 +14,12 @@ borrowed code, fonts and libraries.
 | What | Where | Source | Licence |
 | --- | --- | --- | --- |
 | mulberry32 PRNG | `packages/engine/src/state.ts` | Public-domain algorithm by Tommy Ettinger | Public domain |
+
+## Tools used to make assets (not shipped)
+
+| What | Used for | Source | Licence |
+| --- | --- | --- | --- |
+| Real-ESRGAN, `RealESRGAN_x4plus_anime_6B` model | 4x upscale of the 12 lobby portraits and their eye close-ups | [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) | BSD 3-Clause |
 
 ## Sound effects (bundled)
 
@@ -50,6 +57,12 @@ Keep this repository private while `app/public/sfx/` is in it, since a public re
 The design doc lists Lucide, Phosphor, Kenney, DiceBear, LottieFiles, Freesound,
 Sonniss, Pixabay Music, Incompetech, Howler.js and Tone.js as possible sources.
 None of them ended up being needed; add a row above if one is introduced.
+
+## Name references
+
+| What | Where | Reference |
+| --- | --- | --- |
+| The Judge's signature move, "Domain Expansion: Deadly Sentencing" (and the 領域展開 lettering in its intro) | `packages/engine/src/roster.ts`, `app/src/motion/CourtScene*.tsx` | A fan nod to Hiromi Higuruma's domain in *Jujutsu Kaisen* by Gege Akutami (Shueisha). Only the name is referenced; the character (Rei Tenbin), art and animation are original. Credited in the app's Settings screen. Not affiliated with or endorsed by the series. |
 
 ## Visual reference
 

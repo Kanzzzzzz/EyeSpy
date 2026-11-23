@@ -1,15 +1,14 @@
-import type { RoleId } from '@eyespy/engine';
 import { memo, useEffect, useState } from 'react';
-import { AnimeFace, type Crop, type Expression, type Gaze } from './AnimeFace';
-import { publicLook, roleLook } from './characters';
+import type { Crop, Expression, Gaze } from './faceTypes';
+import { Portrait } from './Portrait';
 
 /**
  * Custom portrait slots. If the player has put their own image in
  * app/public/custom (for example avatar-3.png or char-killer.png), it is
  * shown instead of the drawn face. Nothing in that folder is committed.
  *
- * Slots: avatar-0 … avatar-11 (the lobby faces), char-killer, char-judge.
- * Formats tried: .png, .jpg, .webp. Without an image, the drawn face shows.
+ * Slots: avatar-0 … avatar-11 (the lobby faces).
+ * Formats tried: .png, .jpg, .webp. Without an image, the painted portrait shows.
  */
 
 const EXTS = ['png', 'jpg', 'webp'];
@@ -65,11 +64,8 @@ const CROP_STYLE: Record<Crop, { aspect: string; pos: string; zoom: number }> = 
 };
 
 interface FaceProps {
-  /** A lobby face (0..11). */
-  avatar?: number;
-  /** A secret role character id, with its role as a fallback. */
-  character?: string | null;
-  role?: RoleId | null;
+  /** A lobby face (0..11). Every face in the game is a player's lobby face. */
+  avatar: number;
   size?: number;
   crop?: Crop;
   gaze?: Gaze;
@@ -77,15 +73,15 @@ interface FaceProps {
   ghost?: boolean;
   glowEyes?: boolean;
   blink?: boolean;
+  /** Lobby faces: show the full head-and-shoulders portrait (home screen, character picker). */
+  full?: boolean;
   className?: string;
   title?: string;
 }
 
-/** A face: the player's custom image if they added one, otherwise the drawn character. */
-export const Face = memo(function Face({ avatar, character, role, size = 120, crop = 'bust', className, ghost, title, ...rest }: FaceProps) {
-  const r = role ?? (character ? (character.split('.')[0] as RoleId) : null);
-  const slot = avatar !== undefined ? `avatar-${avatar}` : r === 'killer' || r === 'judge' ? `char-${r}` : null;
-  const url = useCustomImage(slot);
+/** A face: the player's custom image if they added one, otherwise their painted portrait. */
+export const Face = memo(function Face({ avatar, size = 120, crop = 'bust', className, ghost, title, ...rest }: FaceProps) {
+  const url = useCustomImage(`avatar-${avatar}`);
   if (url) {
     const c = CROP_STYLE[crop];
     const dead = rest.expression === 'dead';
@@ -106,6 +102,5 @@ export const Face = memo(function Face({ avatar, character, role, size = 120, cr
       </div>
     );
   }
-  const look = avatar !== undefined ? publicLook(avatar) : roleLook(character, r);
-  return <AnimeFace look={look} size={size} crop={crop} className={className} ghost={ghost} title={title} {...rest} />;
+  return <Portrait id={avatar} size={size} crop={crop} className={className} ghost={ghost} title={title} {...rest} />;
 });
